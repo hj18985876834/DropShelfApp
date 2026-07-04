@@ -1,0 +1,18 @@
+bin/
+obj/
+.vs/
+.vscode/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.nupkg
+
+# Trellis local runtime/session state
+.trellis/.runtime/
+.trellis/.developer
+.trellis/workspace/
+
+# DropShelf local/generated files
+*.log
+installer/Output/
