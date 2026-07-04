@@ -96,6 +96,7 @@
                     Cursor="Hand"
                     Padding="{DynamicResource DropShelfCardPadding}"
                     PreviewMouseMove="ShelfItem_OnPreviewMouseMove"
+                    MouseLeftButtonDown="ShelfItem_OnMouseLeftButtonDown"
                     SnapsToDevicePixels="True"
                     ToolTip="Drag to copy out">
                 <Border.Style>
@@ -228,19 +229,23 @@
                         <Button Content="C"
                                 Command="{Binding CopyCommand}"
                                 Style="{StaticResource ActionButtonStyle}"
-                                ToolTip="Copy" />
+                                ToolTip="Copy"
+                                Click="CardActionButton_OnClick" />
                         <Button Content="O"
                                 Command="{Binding OpenCommand}"
                                 Style="{StaticResource ActionButtonStyle}"
-                                ToolTip="Open" />
+                                ToolTip="Open"
+                                Click="CardActionButton_OnClick" />
                         <Button Content="R"
                                 Command="{Binding RevealCommand}"
                                 Style="{StaticResource ActionButtonStyle}"
-                                ToolTip="Reveal in Explorer" />
+                                ToolTip="Reveal in Explorer"
+                                Click="CardActionButton_OnClick" />
                         <Button Content="X"
                                 Command="{Binding RemoveCommand}"
                                 Style="{StaticResource ActionButtonStyle}"
-                                ToolTip="Remove" />
+                                ToolTip="Remove"
+                                Click="CardActionButton_OnClick" />
                     </StackPanel>
                 </Grid>
             </Border>

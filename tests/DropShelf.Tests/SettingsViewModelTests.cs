@@ -8,7 +8,7 @@ namespace DropShelf.Tests;
 public sealed class SettingsViewModelTests
 {
     [TestMethod]
-    public async Task ChangingDockEdge_SavesAndAppliesSettings()
+    public async Task ApplyCommand_SavesAndAppliesSettings()
     {
         using var tempDirectory = new TempDirectory();
         var store = new SettingsStore(tempDirectory.Path);
@@ -20,6 +20,9 @@ public sealed class SettingsViewModelTests
             settings => applied = settings);
 
         viewModel.DockEdge = DockEdge.Left;
+        Assert.IsNull(applied);
+
+        viewModel.ApplyCommand.Execute(null);
 
         var saved = await store.LoadAsync();
         Assert.AreEqual(DockEdge.Left, saved.DockEdge);
@@ -41,6 +44,9 @@ public sealed class SettingsViewModelTests
             null);
 
         viewModel.StartWithWindows = true;
+        Assert.IsFalse(registry.Values.ContainsKey("DropShelf"));
+
+        viewModel.ApplyCommand.Execute(null);
 
         var saved = await store.LoadAsync();
         Assert.AreEqual("\"C:\\Apps\\DropShelf.exe\"", registry.Values["DropShelf"]);
@@ -58,6 +64,10 @@ public sealed class SettingsViewModelTests
             null);
 
         viewModel.StartWithWindows = true;
+        Assert.IsTrue(viewModel.StartWithWindows);
+        Assert.IsFalse(viewModel.HasStatus);
+
+        viewModel.ApplyCommand.Execute(null);
 
         Assert.IsFalse(viewModel.StartWithWindows);
         Assert.IsTrue(viewModel.HasStatus);

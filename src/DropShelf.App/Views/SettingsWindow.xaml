@@ -78,20 +78,34 @@
                       IsChecked="{Binding StartWithWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </Grid>
 
-        <TextBlock Grid.Row="2"
-                   Text="{Binding StatusMessage}"
-                   Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}"
-                   TextWrapping="Wrap">
-            <TextBlock.Style>
-                <Style TargetType="{x:Type TextBlock}">
-                    <Setter Property="Foreground" Value="{DynamicResource DropShelfMutedTextBrush}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsStatusError}" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource DropShelfErrorTextBrush}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-        </TextBlock>
+        <DockPanel Grid.Row="2" Margin="0,12,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Apply"
+                        Command="{Binding ApplyCommand}"
+                        MinWidth="80"
+                        Margin="0,0,8,0"
+                        Padding="12,5" />
+                <Button Content="Close"
+                        MinWidth="80"
+                        Padding="12,5"
+                        Click="CloseButton_OnClick" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding StatusMessage}"
+                       Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center">
+                <TextBlock.Style>
+                    <Style TargetType="{x:Type TextBlock}">
+                        <Setter Property="Foreground" Value="{DynamicResource DropShelfMutedTextBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsStatusError}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource DropShelfErrorTextBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </DockPanel>
     </Grid>
 </Window>

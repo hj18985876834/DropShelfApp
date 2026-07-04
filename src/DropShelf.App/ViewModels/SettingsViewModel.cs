@@ -1,4 +1,6 @@
 using System.IO;
+using System.Windows.Input;
+using DropShelf.App.Commands;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 
@@ -9,6 +11,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly Action<AppSettings>? _applySettings;
     private readonly SettingsStore? _settingsStore;
     private readonly StartupService? _startupService;
+    private AppSettings _lastAppliedSettings;
     private DensityMode _densityMode;
     private DockEdge _dockEdge;
     private bool _hasStatus;
@@ -38,10 +41,13 @@ public sealed class SettingsViewModel : ObservableObject
         _settingsStore = settingsStore;
         _startupService = startupService;
         _applySettings = applySettings;
+        _lastAppliedSettings = settings;
         _dockEdge = settings.DockEdge;
         _themeMode = settings.ThemeMode;
         _densityMode = settings.DensityMode;
         _startWithWindows = settings.StartWithWindows;
+
+        ApplyCommand = new RelayCommand(_ => SaveAndApply("Settings saved."));
     }
 
     public IReadOnlyList<DockEdge> DockEdgeOptions { get; } = Enum.GetValues<DockEdge>();
@@ -53,37 +59,19 @@ public sealed class SettingsViewModel : ObservableObject
     public DockEdge DockEdge
     {
         get => _dockEdge;
-        set
-        {
-            if (SetProperty(ref _dockEdge, value))
-            {
-                SaveAndApply("Dock edge saved.");
-            }
-        }
+        set => SetPendingProperty(ref _dockEdge, value);
     }
 
     public ThemeMode ThemeMode
     {
         get => _themeMode;
-        set
-        {
-            if (SetProperty(ref _themeMode, value))
-            {
-                SaveAndApply("Theme saved.");
-            }
-        }
+        set => SetPendingProperty(ref _themeMode, value);
     }
 
     public DensityMode DensityMode
     {
         get => _densityMode;
-        set
-        {
-            if (SetProperty(ref _densityMode, value))
-            {
-                SaveAndApply("Density saved.");
-            }
-        }
+        set => SetPendingProperty(ref _densityMode, value);
     }
 
     public bool StartWithWindows
@@ -96,17 +84,7 @@ public sealed class SettingsViewModel : ObservableObject
                 return;
             }
 
-            try
-            {
-                _startupService?.SetEnabled(value);
-                SaveAndApply(value ? "Startup enabled." : "Startup disabled.");
-            }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
-            {
-                _startWithWindows = !value;
-                OnPropertyChanged();
-                SetStatus("Unable to update the Windows startup setting.", isError: true);
-            }
+            ClearStatus();
         }
     }
 
@@ -127,6 +105,8 @@ public sealed class SettingsViewModel : ObservableObject
         get => _isStatusError;
         private set => SetProperty(ref _isStatusError, value);
     }
+
+    public ICommand ApplyCommand { get; }
 
     public AppSettings Settings
     {
@@ -152,12 +132,15 @@ public sealed class SettingsViewModel : ObservableObject
 
         try
         {
+            _startupService?.SetEnabled(settings.StartWithWindows);
             _settingsStore?.SaveAsync(settings).GetAwaiter().GetResult();
             _applySettings?.Invoke(settings);
+            _lastAppliedSettings = settings;
             SetStatus(successMessage, isError: false);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException)
         {
+            ApplySettingsToProperties(_lastAppliedSettings);
             SetStatus("Unable to save settings.", isError: true);
         }
     }
@@ -178,5 +161,33 @@ public sealed class SettingsViewModel : ObservableObject
         StatusMessage = message;
         HasStatus = true;
         IsStatusError = isError;
+    }
+
+    private void SetPendingProperty<T>(ref T field, T value)
+    {
+        if (SetProperty(ref field, value))
+        {
+            ClearStatus();
+        }
+    }
+
+    private void ClearStatus()
+    {
+        StatusMessage = string.Empty;
+        HasStatus = false;
+        IsStatusError = false;
+    }
+
+    private void ApplySettingsToProperties(AppSettings settings)
+    {
+        _dockEdge = settings.DockEdge;
+        _themeMode = settings.ThemeMode;
+        _densityMode = settings.DensityMode;
+        _startWithWindows = settings.StartWithWindows;
+        OnPropertyChanged(nameof(DockEdge));
+        OnPropertyChanged(nameof(ThemeMode));
+        OnPropertyChanged(nameof(DensityMode));
+        OnPropertyChanged(nameof(StartWithWindows));
+        OnPropertyChanged(nameof(Settings));
     }
 }

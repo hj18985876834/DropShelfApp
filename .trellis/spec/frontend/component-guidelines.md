@@ -76,6 +76,14 @@ Shell entry points must remain discoverable without relying only on tray access:
   same objects.
 * Do not put tray, registry, file-system, or screen-positioning side effects
   directly in ViewModels.
+* Do not apply shell-affecting settings from every ComboBox or CheckBox property
+  change. Settings windows should keep pending values and expose an explicit
+  apply command so choosing dock edge, density, theme, or startup options does
+  not re-layout the shelf while the control is still handling input.
+* Do not let card-level drag-out handlers process mouse events that originate
+  from action buttons inside the card. Check `e.OriginalSource` up the visual
+  tree and skip drag logic for command buttons, and require the normal WPF
+  minimum drag distance before calling `DragDrop.DoDragDrop`.
 * When `UseWindowsForms` is enabled for `NotifyIcon`, use aliases or
   fully-qualified WPF types for overlapping names. This includes
   `Application`, `Clipboard`, `IDataObject`, `DragDrop`, `DragDropEffects`,

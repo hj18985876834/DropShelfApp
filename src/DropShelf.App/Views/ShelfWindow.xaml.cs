@@ -1,5 +1,8 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
@@ -7,9 +10,11 @@ using WpfDragDrop = System.Windows.DragDrop;
 using WpfDragDropEffects = System.Windows.DragDropEffects;
 using WpfDragEventArgs = System.Windows.DragEventArgs;
 using WpfClipboard = System.Windows.Clipboard;
+using WpfButton = System.Windows.Controls.Button;
 using WpfGrid = System.Windows.Controls.Grid;
 using WpfMouseButtonState = System.Windows.Input.MouseButtonState;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
+using WpfPoint = System.Windows.Point;
 
 namespace DropShelf.App.Views;
 
@@ -21,6 +26,7 @@ public partial class ShelfWindow : Window
     private readonly ShelfViewModel _viewModel;
     private bool _allowClose;
     private DockEdge _dockEdge;
+    private WpfPoint? _dragStartPoint;
 
     public ShelfWindow(
         ShelfViewModel viewModel,
@@ -242,8 +248,23 @@ public partial class ShelfWindow : Window
 
     private void ShelfItem_OnPreviewMouseMove(object sender, WpfMouseEventArgs e)
     {
+        if (IsFromCardActionButton(e.OriginalSource))
+        {
+            _dragStartPoint = null;
+            return;
+        }
+
         if (e.LeftButton != WpfMouseButtonState.Pressed ||
             sender is not FrameworkElement { DataContext: ShelfItemViewModel itemViewModel })
+        {
+            _dragStartPoint = null;
+            return;
+        }
+
+        var currentPosition = e.GetPosition(this);
+        _dragStartPoint ??= currentPosition;
+        if (Math.Abs(currentPosition.X - _dragStartPoint.Value.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(currentPosition.Y - _dragStartPoint.Value.Y) < SystemParameters.MinimumVerticalDragDistance)
         {
             return;
         }
@@ -258,6 +279,36 @@ public partial class ShelfWindow : Window
 
         WpfDragDrop.DoDragDrop((DependencyObject)sender, payload.CreateDataObject(), payload.AllowedEffects);
         itemViewModel.RefreshPathState();
+        _dragStartPoint = null;
         e.Handled = true;
+    }
+
+    private void ShelfItem_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(this);
+    }
+
+    private void CardActionButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        _dragStartPoint = null;
+        e.Handled = true;
+    }
+
+    private static bool IsFromCardActionButton(object originalSource)
+    {
+        var current = originalSource as DependencyObject;
+        while (current is not null)
+        {
+            if (current is WpfButton { Command: not null })
+            {
+                return true;
+            }
+
+            current = current is Visual or Visual3D
+                ? VisualTreeHelper.GetParent(current)
+                : LogicalTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 }
