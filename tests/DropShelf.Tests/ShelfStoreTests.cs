@@ -15,7 +15,7 @@ public sealed class ShelfStoreTests
 
         var items = await store.LoadAsync();
 
-        Assert.AreEqual(0, items.Count);
+        Assert.IsEmpty(items);
     }
 
     [TestMethod]
@@ -50,7 +50,7 @@ public sealed class ShelfStoreTests
         var actual = await store.LoadAsync();
 
         Assert.IsTrue(File.Exists(Path.Combine(appDataRoot, "shelf.json")));
-        Assert.AreEqual(2, actual.Count);
+        Assert.HasCount(2, actual);
         Assert.AreEqual(firstId, actual[0].Id);
         Assert.AreEqual(ShelfItemType.File, actual[0].Type);
         Assert.AreEqual(expected[0].DisplayName, actual[0].DisplayName);
@@ -69,7 +69,7 @@ public sealed class ShelfStoreTests
 
         var items = await store.LoadAsync();
 
-        Assert.AreEqual(0, items.Count);
+        Assert.IsEmpty(items);
     }
 
     [TestMethod]
@@ -92,6 +92,6 @@ public sealed class ShelfStoreTests
 
         var items = await store.LoadAsync();
 
-        Assert.AreEqual(0, items.Count);
+        Assert.IsEmpty(items);
     }
 }

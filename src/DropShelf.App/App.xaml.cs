@@ -18,6 +18,8 @@ public partial class App : System.Windows.Application
     private AppSettings _settings = AppSettings.CreateDefault();
     private SettingsStore? _settingsStore;
     private ShelfStore? _shelfStore;
+    private StartupService? _startupService;
+    private ThemeService? _themeService;
     private TrayIconService? _trayIconService;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -36,12 +38,34 @@ public partial class App : System.Windows.Application
         var appDataRoot = new AppDataPathService().GetAppDataRoot();
         _settingsStore = new SettingsStore(appDataRoot);
         _shelfStore = new ShelfStore(appDataRoot);
+        _startupService = new StartupService();
+        _themeService = new ThemeService();
 
         _settings = _settingsStore.LoadAsync().GetAwaiter().GetResult();
+        _settings = new AppSettings
+        {
+            DockEdge = _settings.DockEdge,
+            ThemeMode = _settings.ThemeMode,
+            DensityMode = _settings.DensityMode,
+            StartWithWindows = _startupService.IsEnabled(),
+        };
+        _themeService.Apply(this, _settings);
+
         var shelfItems = _shelfStore.LoadAsync().GetAwaiter().GetResult();
         var dockService = new WindowDockService();
+        var dragDropService = new DragDropService();
+        var imageStore = new ImageStore(appDataRoot);
+        var fileActionService = new FileActionService();
+        var clipboardService = new ClipboardService();
 
-        _shelfViewModel = new ShelfViewModel(OpenSettingsWindow, shelfItems);
+        _shelfViewModel = new ShelfViewModel(
+            OpenSettingsWindow,
+            shelfItems,
+            fileActionService,
+            clipboardService,
+            imageStore,
+            _settings.DensityMode,
+            _settings.ThemeMode);
         _shelfViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShelfViewModel.IsShelfVisible))
@@ -50,7 +74,8 @@ public partial class App : System.Windows.Application
             }
         };
 
-        _shelfWindow = new ShelfWindow(_shelfViewModel, dockService, _settings.DockEdge);
+        _shelfWindow = new ShelfWindow(_shelfViewModel, dockService, dragDropService, imageStore, _settings.DockEdge);
+        _shelfWindow.ApplySettings(_settings);
         _shelfWindow.Show();
 
         _trayIconService = new TrayIconService(
@@ -64,7 +89,7 @@ public partial class App : System.Windows.Application
     {
         if (_shelfStore is not null && _shelfViewModel is not null)
         {
-            _shelfStore.SaveAsync(_shelfViewModel.Items).GetAwaiter().GetResult();
+            _shelfStore.SaveAsync(_shelfViewModel.GetShelfItems()).GetAwaiter().GetResult();
         }
 
         if (_settingsStore is not null)
@@ -88,7 +113,11 @@ public partial class App : System.Windows.Application
         _settingsWindow = new SettingsWindow
         {
             Owner = _shelfWindow,
-            DataContext = new SettingsViewModel(_settings),
+            DataContext = new SettingsViewModel(
+                _settings,
+                _settingsStore,
+                _startupService,
+                ApplySettings),
         };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
@@ -101,6 +130,13 @@ public partial class App : System.Windows.Application
         _trayIconService?.Dispose();
         _shelfWindow?.ForceClose();
         Shutdown();
+    }
+
+    private void ApplySettings(AppSettings settings)
+    {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _themeService?.Apply(this, _settings);
+        _shelfWindow?.ApplySettings(_settings);
     }
 }
 

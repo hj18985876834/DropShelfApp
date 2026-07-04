@@ -125,9 +125,175 @@ contract.
 
 ---
 
+## Scenario: File And Folder Shelf Items
+
+### 1. Scope / Trigger
+
+Use this contract whenever Explorer file/folder drops become shelf records, or
+when file/folder shelf records are displayed, copied, opened, revealed, removed,
+cleared, or persisted.
+
+### 2. Signatures
+
+* `DragDropService.CreateFileSystemItems(IEnumerable<string>)` returns one
+  `ShelfItem` per existing file or directory path.
+* `ShelfViewModel.AddItems(IEnumerable<ShelfItem>)` wraps records in
+  `ShelfItemViewModel` instances for display and commands.
+* `ShelfViewModel.GetShelfItems()` returns model records for persistence.
+* `ShelfItemViewModel.CopyPathCommand` copies the original `SourcePath`.
+* `ShelfItemViewModel.OpenCommand` opens the path with default Windows behavior.
+* `ShelfItemViewModel.RevealCommand` opens Explorer at the item.
+* `ShelfItemViewModel.RemoveCommand` removes the record only.
+* `ShelfViewModel.ClearAllCommand` clears shelf records only.
+
+### 3. Contracts
+
+* Existing files create `ShelfItemType.File`.
+* Existing directories create `ShelfItemType.Folder`.
+* `SourcePath` is the absolute original path.
+* `DisplayName` defaults to the file or folder name.
+* File/folder items never copy bytes into app data.
+* File/folder remove and clear flows never delete, move, rename, or copy the
+  original source.
+* Missing source paths remain visible and report `IsMissing = true`.
+* Open and reveal are disabled or return non-blocking status when the source is
+  missing or unavailable.
+
+### 4. Validation & Error Matrix
+
+* Unsupported drag payload -> no records; UI marks drag as unsupported.
+* Empty or whitespace path -> ignored.
+* Path does not exist at drop time -> ignored.
+* Duplicate existing path -> allowed in V1.
+* Path exists at display time -> open/reveal commands can execute.
+* Path no longer exists at display time -> missing state; remove remains
+  available.
+
+### 5. Good/Base/Bad Cases
+
+* Good: dropping a mix of files and folders creates ordered records, persists
+  them, and restores cards after restart.
+* Base: removing a record or clearing the shelf leaves original files/folders
+  untouched.
+* Bad: treating a file/folder shelf item like an app-owned image and deleting
+  `SourcePath` would destroy user data.
+
+### 6. Tests Required
+
+Use temporary directories/files.
+
+* Assert file path -> `ShelfItemType.File`, original `SourcePath`, file name
+  `DisplayName`.
+* Assert directory path -> `ShelfItemType.Folder`, original `SourcePath`, folder
+  name `DisplayName`.
+* Assert mixed file/folder order is preserved.
+* Assert missing/unsupported paths are ignored on input.
+* Assert remove does not delete source files.
+* Assert clear all does not delete source files.
+* Assert missing source path yields missing state and disables open/reveal.
+* Assert copy path sends the original `SourcePath` to the clipboard boundary.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```csharp
+File.Delete(item.SourcePath);
+Items.Remove(item);
+```
+
+File/folder shelf records are references. Removing a record must never delete
+the user's original file or folder.
+
+#### Correct
+
+```csharp
+Items.Remove(itemViewModel);
+await shelfStore.SaveAsync(viewModel.GetShelfItems(), cancellationToken);
+```
+
+Only the app's shelf record changes; the file system source remains untouched.
+
+---
+
 ## Common Mistakes
 
 * Do not let Views perform persistence directly.
 * Do not let ViewModels write registry values, files, or image data directly; use Services.
 * Do not duplicate settings defaults across UI and storage. `AppSettings.CreateDefault()` is the starting source of truth.
 * Do not make file/folder shelf records copy or move original files. V1 stores path references only.
+
+## Scenario: App-Owned Image Shelf Items
+
+### 1. Scope / Trigger
+
+Use this contract whenever code accepts pathless bitmap data from clipboard or
+drag/drop and turns it into a persisted shelf item.
+
+### 2. Signatures
+
+* `new ImageStore(appDataRoot)` owns image cache paths under the DropShelf app
+  data root.
+* `ImageStore.SaveImage(BitmapSource)` returns a `ShelfItem` with `Type = Image`.
+* `ImageStore.DeleteImageFiles(ShelfItem)` removes app-owned image files for an
+  image shelf item.
+* `ImagePathConverter` loads thumbnail paths with `BitmapCacheOption.OnLoad`
+  before binding them in WPF.
+
+### 3. Contracts
+
+* Pathless images are stored under `%LOCALAPPDATA%/DropShelf/images/originals/`.
+* Thumbnails are stored under `%LOCALAPPDATA%/DropShelf/images/thumbs/`.
+* Image shelf records store `imagePath` and `thumbnailPath`; file/folder shelf
+  records continue to store only `sourcePath`.
+* Explorer image file drops remain file references. Do not duplicate an image
+  file just because its extension is an image type.
+
+### 4. Validation & Error Matrix
+
+* Clipboard/drop data has file-drop format -> handle as file/folder first.
+* Clipboard/drop data has bitmap format without file-drop format -> save an
+  app-owned original and thumbnail.
+* Missing image or thumbnail on reload -> keep the card and show a missing
+  state; do not crash startup.
+* Delete image item -> delete app-owned original and thumbnail if present.
+* Delete file/folder item -> delete shelf record only; never delete source.
+
+### 5. Good/Base/Bad Cases
+
+* Good: paste a screenshot, restart, see the thumbnail, then remove the item and
+  confirm both cached files are gone.
+* Base: image cache file was manually deleted; app still loads the record and
+  shows a missing/corrupt state.
+* Bad: binding an image path directly in WPF can keep the file locked and make
+  remove/clear fail to delete the app-owned thumbnail.
+
+### 6. Tests Required
+
+* Assert `ImageStore.SaveImage` creates original and thumbnail paths under app
+  data.
+* Assert `ImageStore.DeleteImageFiles` removes existing app-owned files and
+  ignores missing files.
+* Assert remove/clear in `ShelfViewModel` deletes app-owned image files but
+  leaves original file/folder source paths untouched.
+* Assert `DragDropService` treats Explorer image file drops as file records.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```xml
+<Image Source="{Binding ThumbnailPath}" />
+```
+
+This can leave the thumbnail file locked by the WPF image pipeline.
+
+#### Correct
+
+```xml
+<Image Source="{Binding ThumbnailPath, Converter={StaticResource ImagePathConverter}}" />
+```
+
+The converter loads with `BitmapCacheOption.OnLoad`, freezes the bitmap, and
+lets image cleanup delete app-owned files later.
+* Do not route file/folder remove or clear through `ImageStore.DeleteImageFiles`; that cleanup is only for app-owned image files.

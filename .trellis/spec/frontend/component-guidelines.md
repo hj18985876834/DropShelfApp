@@ -76,5 +76,9 @@ Shell entry points must remain discoverable without relying only on tray access:
   same objects.
 * Do not put tray, registry, file-system, or screen-positioning side effects
   directly in ViewModels.
-* When enabling Windows Forms for `NotifyIcon`, use aliases or fully-qualified
-  WPF types where needed to avoid `Application` name collisions.
+* When `UseWindowsForms` is enabled for `NotifyIcon`, use aliases or
+  fully-qualified WPF types for overlapping names. This includes
+  `Application`, `Clipboard`, `IDataObject`, `DragDrop`, `DragDropEffects`,
+  `DragEventArgs`, `MouseEventArgs`, `Grid`, `Color`, and `ColorConverter`.
+  Prefer local aliases such as `WpfClipboard = System.Windows.Clipboard` or
+  `WpfGrid = System.Windows.Controls.Grid` in WPF code-behind/services.

@@ -1,6 +1,28 @@
 <Application x:Class="DropShelf.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <Application.Resources>
+        <SolidColorBrush x:Key="DropShelfWindowBackground" Color="#F8FAFB" />
+        <SolidColorBrush x:Key="DropShelfPanelBackground" Color="#F8FAFB" />
+        <SolidColorBrush x:Key="DropShelfPanelBorderBrush" Color="#C9D2D8" />
+        <SolidColorBrush x:Key="DropShelfSurfaceBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="DropShelfSurfaceHoverBrush" Color="#E3EEF4" />
+        <SolidColorBrush x:Key="DropShelfSurfacePressedBrush" Color="#D2E2EC" />
+        <SolidColorBrush x:Key="DropShelfCardBorderBrush" Color="#D7E0E6" />
+        <SolidColorBrush x:Key="DropShelfSubtleBrush" Color="#EAF1F5" />
+        <SolidColorBrush x:Key="DropShelfTextBrush" Color="#1F2C33" />
+        <SolidColorBrush x:Key="DropShelfMutedTextBrush" Color="#687780" />
+        <SolidColorBrush x:Key="DropShelfAccentBrush" Color="#5FAE73" />
+        <SolidColorBrush x:Key="DropShelfWarningBackgroundBrush" Color="#FFF2D8" />
+        <SolidColorBrush x:Key="DropShelfWarningTextBrush" Color="#8A4F16" />
+        <SolidColorBrush x:Key="DropShelfErrorTextBrush" Color="#9A2E22" />
+        <Thickness x:Key="DropShelfPanelPadding">14</Thickness>
+        <Thickness x:Key="DropShelfCardPadding">9</Thickness>
+        <Thickness x:Key="DropShelfCardMargin">0,0,0,7</Thickness>
+        <Thickness x:Key="DropShelfActionButtonPadding">7,3,7,3</Thickness>
+        <sys:Double x:Key="DropShelfTypeBadgeSize">32</sys:Double>
+        <sys:Double x:Key="DropShelfTitleFontSize">13</sys:Double>
+        <sys:Double x:Key="DropShelfBodyFontSize">11</sys:Double>
     </Application.Resources>
 </Application>

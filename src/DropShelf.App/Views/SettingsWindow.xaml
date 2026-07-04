@@ -4,15 +4,94 @@
         Title="DropShelf Settings"
         Width="420"
         Height="360"
+        ResizeMode="NoResize"
+        Background="{DynamicResource DropShelfWindowBackground}"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="FieldLabelStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfMutedTextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="SettingsComboStyle" TargetType="{x:Type ComboBox}">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+    </Window.Resources>
+
     <Grid Margin="20">
-        <StackPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="Settings"
                        FontSize="20"
                        FontWeight="SemiBold"
-                       Margin="0,0,0,16" />
-            <TextBlock Text="Dock edge, theme, density, and startup settings will be configured here."
-                       TextWrapping="Wrap" />
-        </StackPanel>
+                       Foreground="{DynamicResource DropShelfTextBrush}" />
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Dock edge" Style="{StaticResource FieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding DockEdgeOptions}"
+                          SelectedItem="{Binding DockEdge, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          Style="{StaticResource SettingsComboStyle}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Grid.Column="2">
+                <TextBlock Text="Theme" Style="{StaticResource FieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding ThemeModeOptions}"
+                          SelectedItem="{Binding ThemeMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          Style="{StaticResource SettingsComboStyle}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="0">
+                <TextBlock Text="Density" Style="{StaticResource FieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding DensityModeOptions}"
+                          SelectedItem="{Binding DensityMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          Style="{StaticResource SettingsComboStyle}" />
+            </StackPanel>
+
+            <CheckBox Grid.Row="2"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="3"
+                      Margin="0,8,0,0"
+                      Content="Start with Windows"
+                      Foreground="{DynamicResource DropShelfTextBrush}"
+                      IsChecked="{Binding StartWithWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}"
+                   TextWrapping="Wrap">
+            <TextBlock.Style>
+                <Style TargetType="{x:Type TextBlock}">
+                    <Setter Property="Foreground" Value="{DynamicResource DropShelfMutedTextBrush}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsStatusError}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource DropShelfErrorTextBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
     </Grid>
 </Window>

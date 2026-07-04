@@ -24,6 +24,8 @@ DropShelf is a WPF desktop utility. Quality checks must cover both C# correctnes
 ## Required Patterns
 
 * Run Windows-side `dotnet build` and `dotnet test` after each runnable feature slice.
+* Run `dotnet format --verify-no-changes`; treat analyzer warnings as quality
+  failures because this command returns non-zero for project analyzers.
 * Keep file/folder shelf records as original path references.
 * Store pathless/pasted images under app-owned local data.
 * Use services for side-effect boundaries.
@@ -42,6 +44,14 @@ Unit-test:
 * shelf metadata persistence
 * image store path/cleanup behavior
 * ViewModel commands and selection behavior
+
+For MSTest 4, use analyzer-preferred assertions so `dotnet format
+--verify-no-changes` stays green:
+
+* Use `Assert.IsEmpty(collection)` instead of `Assert.AreEqual(0, collection.Count)`.
+* Use `Assert.HasCount(expected, collection)` instead of count equality asserts.
+* Use `[TestMethod]` with `[DataRow]` for data-driven tests; do not use obsolete
+  `[DataTestMethod]`.
 
 Manual Windows validation is required for:
 

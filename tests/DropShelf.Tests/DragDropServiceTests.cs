@@ -1,0 +1,228 @@
+using System.IO;
+using System.Windows;
+using DropShelf.App.Models;
+using DropShelf.App.Services;
+
+namespace DropShelf.Tests;
+
+[TestClass]
+public sealed class DragDropServiceTests
+{
+    [TestMethod]
+    public void CreateFileSystemItems_CreatesFileItemFromPath()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "report.txt");
+        File.WriteAllText(filePath, "hello");
+        var service = new DragDropService();
+
+        var items = service.CreateFileSystemItems([filePath]);
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(filePath, items[0].SourcePath);
+        Assert.AreEqual("report.txt", items[0].DisplayName);
+    }
+
+    [TestMethod]
+    public void CreateFileSystemItems_CreatesFolderItemFromPath()
+    {
+        using var tempDirectory = new TempDirectory();
+        var folderPath = Path.Combine(tempDirectory.Path, "Invoices");
+        Directory.CreateDirectory(folderPath);
+        var service = new DragDropService();
+
+        var items = service.CreateFileSystemItems([folderPath]);
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Folder, items[0].Type);
+        Assert.AreEqual(folderPath, items[0].SourcePath);
+        Assert.AreEqual("Invoices", items[0].DisplayName);
+    }
+
+    [TestMethod]
+    public void CreateFileSystemItems_PreservesMixedFileAndFolderOrder()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "first.txt");
+        var folderPath = Path.Combine(tempDirectory.Path, "Second");
+        File.WriteAllText(filePath, "hello");
+        Directory.CreateDirectory(folderPath);
+        var service = new DragDropService();
+
+        var items = service.CreateFileSystemItems([filePath, folderPath]);
+
+        Assert.HasCount(2, items);
+        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(ShelfItemType.Folder, items[1].Type);
+    }
+
+    [TestMethod]
+    public void CreateFileSystemItems_IgnoresMissingAndUnsupportedPaths()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "kept.txt");
+        File.WriteAllText(filePath, "hello");
+        var missingPath = Path.Combine(tempDirectory.Path, "missing.txt");
+        var service = new DragDropService();
+
+        var items = service.CreateFileSystemItems([missingPath, "", filePath]);
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(filePath, items[0].SourcePath);
+    }
+
+    [TestMethod]
+    public void CreateFileSystemItems_TreatsImageFileAsFileReference()
+    {
+        using var tempDirectory = new TempDirectory();
+        var imagePath = Path.Combine(tempDirectory.Path, "image.png");
+        File.WriteAllText(imagePath, "path reference only");
+        var service = new DragDropService();
+
+        var items = service.CreateFileSystemItems([imagePath]);
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(imagePath, items[0].SourcePath);
+        Assert.IsNull(items[0].ImagePath);
+        Assert.IsNull(items[0].ThumbnailPath);
+    }
+
+    [TestMethod]
+    public void CreateItems_PrioritizesFileDropOverTextFormats()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var filePath = Path.Combine(tempDirectory.Path, "image.png");
+        File.WriteAllText(filePath, "path reference only");
+        var dataObject = new DataObject();
+        dataObject.SetData(DataFormats.FileDrop, new[] { filePath });
+        dataObject.SetText("https://example.com/image.png");
+        var service = new DragDropService();
+
+        var items = service.CreateItems(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(filePath, items[0].SourcePath);
+    }
+
+    [TestMethod]
+    public void CreateTextOrUrlItem_CreatesTextItemForPlainText()
+    {
+        var service = new DragDropService();
+
+        var item = service.CreateTextOrUrlItem("hello world\r\nsecond line");
+
+        Assert.IsNotNull(item);
+        Assert.AreEqual(ShelfItemType.Text, item.Type);
+        Assert.AreEqual("hello world\r\nsecond line", item.Content);
+        Assert.AreEqual("hello world", item.DisplayName);
+    }
+
+    [TestMethod]
+    public void CreateTextOrUrlItem_CreatesUrlItemForHttpUrl()
+    {
+        var service = new DragDropService();
+
+        var item = service.CreateTextOrUrlItem("https://example.com/path?q=1");
+
+        Assert.IsNotNull(item);
+        Assert.AreEqual(ShelfItemType.Url, item.Type);
+        Assert.AreEqual("https://example.com/path?q=1", item.Content);
+        Assert.AreEqual("example.com", item.DisplayName);
+    }
+
+    [TestMethod]
+    [DataRow("https://example.com")]
+    [DataRow("http://example.com/path")]
+    public void IsValidUrl_ReturnsTrueForHttpUrls(string url)
+    {
+        var service = new DragDropService();
+
+        Assert.IsTrue(service.IsValidUrl(url));
+    }
+
+    [TestMethod]
+    [DataRow("example.com")]
+    [DataRow("ftp://example.com/file.txt")]
+    [DataRow("not a url")]
+    [DataRow("")]
+    public void IsValidUrl_ReturnsFalseForUnsupportedText(string text)
+    {
+        var service = new DragDropService();
+
+        Assert.IsFalse(service.IsValidUrl(text));
+    }
+
+    [TestMethod]
+    public void CreateDragOutPayload_ReturnsCopyFileDropForExistingFile()
+    {
+        using var tempDirectory = new TempDirectory();
+        var sourcePath = Path.Combine(tempDirectory.Path, "source.txt");
+        File.WriteAllText(sourcePath, "content");
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "source.txt",
+            SourcePath = sourcePath,
+        });
+
+        Assert.IsNotNull(payload);
+        Assert.AreEqual(DragDropEffects.Copy, payload.AllowedEffects);
+        CollectionAssert.AreEqual(new[] { sourcePath }, payload.Paths.ToArray());
+    }
+
+    [TestMethod]
+    public void CreateDragOutPayload_ReturnsCopyFileDropForExistingFolder()
+    {
+        using var tempDirectory = new TempDirectory();
+        var sourcePath = Path.Combine(tempDirectory.Path, "folder");
+        Directory.CreateDirectory(sourcePath);
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Folder,
+            DisplayName = "folder",
+            SourcePath = sourcePath,
+        });
+
+        Assert.IsNotNull(payload);
+        Assert.AreEqual(DragDropEffects.Copy, payload.AllowedEffects);
+        CollectionAssert.AreEqual(new[] { sourcePath }, payload.Paths.ToArray());
+    }
+
+    [TestMethod]
+    public void CreateDragOutPayload_ReturnsNullForMissingSource()
+    {
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "missing.txt",
+            SourcePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt"),
+        });
+
+        Assert.IsNull(payload);
+    }
+
+    [TestMethod]
+    public void CreateDragOutPayload_ReturnsNullForNonFileSystemItem()
+    {
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Text,
+            DisplayName = "note",
+            Content = "hello",
+        });
+
+        Assert.IsNull(payload);
+    }
+}

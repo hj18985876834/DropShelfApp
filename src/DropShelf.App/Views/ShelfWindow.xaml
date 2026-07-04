@@ -1,6 +1,8 @@
 <Window x:Class="DropShelf.App.Views.ShelfWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:DropShelf.App.Converters"
+        xmlns:models="clr-namespace:DropShelf.App.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -15,12 +17,15 @@
         AllowsTransparency="True"
         Background="Transparent">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:ImagePathConverter x:Key="ImagePathConverter" />
+
         <Style x:Key="HandleButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="#F2F6F8" />
-            <Setter Property="BorderBrush" Value="#B9C3CC" />
+            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="#26323A" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -34,31 +39,233 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#E3EEF4" />
-                                <Setter Property="BorderBrush" Value="#7F9CAD" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#D2E2EC" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfacePressedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="HeaderButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
+            <Setter Property="Padding" Value="10,4" />
+        </Style>
+
+        <Style x:Key="ActionButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{DynamicResource DropShelfPanelBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="ShelfListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="ShelfItemTemplate">
+            <Border x:Name="Card"
+                    Margin="{DynamicResource DropShelfCardMargin}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Cursor="Hand"
+                    Padding="{DynamicResource DropShelfCardPadding}"
+                    PreviewMouseMove="ShelfItem_OnPreviewMouseMove"
+                    SnapsToDevicePixels="True"
+                    ToolTip="Drag to copy out">
+                <Border.Style>
+                    <Style TargetType="{x:Type Border}">
+                        <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource DropShelfCardBorderBrush}" />
+                        <Setter Property="MinHeight" Value="82" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfWarningBackgroundBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="136" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0"
+                          Width="38"
+                          Height="38"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top">
+                        <Border Background="{DynamicResource DropShelfSubtleBrush}"
+                                BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <Border.Style>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Type}" Value="{x:Static models:ShelfItemType.Image}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding TypeLabel}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DropShelfTextBrush}" />
+                        </Border>
+
+                        <Border Background="{DynamicResource DropShelfSubtleBrush}"
+                                BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                ClipToBounds="True">
+                            <Border.Style>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Type}" Value="{x:Static models:ShelfItemType.Image}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Image Source="{Binding ThumbnailPath, Converter={StaticResource ImagePathConverter}}"
+                                   Stretch="UniformToFill"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Margin="0,0,12,0">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   FontSize="{DynamicResource DropShelfTitleFontSize}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DropShelfTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding DisplayName}" />
+                        <TextBlock Text="{Binding PreviewText}"
+                                   Margin="0,4,0,0"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding PreviewText}" />
+                        <TextBlock Text="Missing"
+                                   Margin="0,4,0,0"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DropShelfErrorTextBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="{x:Type StackPanel}">
+                                <Setter Property="Opacity" Value="0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                        <Setter Property="Opacity" Value="1" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                        <Setter Property="Opacity" Value="1" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button Content="C"
+                                Command="{Binding CopyCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                ToolTip="Copy" />
+                        <Button Content="O"
+                                Command="{Binding OpenCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                ToolTip="Open" />
+                        <Button Content="R"
+                                Command="{Binding RevealCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                ToolTip="Reveal in Explorer" />
+                        <Button Content="X"
+                                Command="{Binding RemoveCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                ToolTip="Remove" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
-    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <Grid x:Name="RootLayout"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="36" />
         </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="0" />
+        </Grid.RowDefinitions>
 
         <Border x:Name="PanelHost"
                 Grid.Column="0"
+                Grid.Row="0"
                 Margin="0,8,0,8"
-                Padding="16"
-                Background="#F8FAFB"
-                BorderBrush="#C9D2D8"
+                Padding="{DynamicResource DropShelfPanelPadding}"
+                Background="{DynamicResource DropShelfPanelBackground}"
+                BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="10,0,0,10">
             <Grid>
@@ -72,41 +279,80 @@
                             Command="{Binding OpenSettingsCommand}"
                             DockPanel.Dock="Right"
                             HorizontalAlignment="Right"
-                            Padding="10,4" />
+                            Style="{StaticResource HeaderButtonStyle}" />
                     <TextBlock Text="DropShelf"
                                FontSize="18"
                                FontWeight="SemiBold"
-                               Foreground="#1D2930"
+                               Foreground="{DynamicResource DropShelfTextBrush}"
                                VerticalAlignment="Center" />
                 </DockPanel>
 
-                <Border Grid.Row="1"
+                <Border x:Name="DropZone"
+                        Grid.Row="1"
                         AllowDrop="True"
-                        Background="#FFFFFF"
-                        BorderBrush="#C9D2D8"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="20">
-                    <StackPanel HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Width="240">
-                        <TextBlock Text="Drop files, text, or images here"
-                                   FontSize="15"
-                                   FontWeight="SemiBold"
-                                   Foreground="#33424A"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="Stored items will appear here in the next feature slice."
-                                   Margin="0,8,0,0"
-                                   Foreground="#66747D"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
+                        Padding="12"
+                        DragOver="DropZone_OnDragOver"
+                        DragLeave="DropZone_OnDragLeave"
+                        Drop="DropZone_OnDrop">
+                    <Border.Style>
+                        <Style TargetType="{x:Type Border}">
+                            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDragOverAccepted}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsDragOverUnsupported}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource DropShelfWarningBackgroundBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+
+                    <Grid>
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Width="240"
+                                    Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="Drop files, text, or images here"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DropShelfTextBrush}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <ListBox ItemsSource="{Binding Items}"
+                                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                 ItemTemplate="{StaticResource ShelfItemTemplate}"
+                                 ItemContainerStyle="{StaticResource ShelfListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.Style>
+                                <Style TargetType="{x:Type ListBox}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListBox.Style>
+                        </ListBox>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>
 
-        <Button Grid.Column="1"
+        <Button x:Name="ToggleHandle"
+                Grid.Column="1"
+                Grid.Row="0"
                 Width="36"
                 Height="132"
                 HorizontalAlignment="Stretch"
@@ -114,7 +360,7 @@
                 Command="{Binding ToggleShelfCommand}"
                 Style="{StaticResource HandleButtonStyle}"
                 ToolTip="Show or hide DropShelf">
-            <StackPanel>
+            <StackPanel x:Name="ToggleContent">
                 <TextBlock Text="D"
                            FontSize="15"
                            FontWeight="Bold"
