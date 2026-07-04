@@ -1,4 +1,5 @@
 using DropShelf.App.ViewModels;
+using DropShelf.App.Models;
 
 namespace DropShelf.Tests;
 
@@ -11,6 +12,19 @@ public sealed class ShelfViewModelTests
         var viewModel = new ShelfViewModel();
 
         Assert.IsFalse(viewModel.IsShelfVisible);
+    }
+
+    [TestMethod]
+    public void Constructor_AddsInitialShelfItemsInOrder()
+    {
+        var first = new ShelfItem { DisplayName = "First", Type = ShelfItemType.Text };
+        var second = new ShelfItem { DisplayName = "Second", Type = ShelfItemType.Url };
+
+        var viewModel = new ShelfViewModel(initialItems: [first, second]);
+
+        Assert.AreEqual(2, viewModel.Items.Count);
+        Assert.AreSame(first, viewModel.Items[0]);
+        Assert.AreSame(second, viewModel.Items[1]);
     }
 
     [TestMethod]

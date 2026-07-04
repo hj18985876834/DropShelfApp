@@ -15,6 +15,9 @@ public partial class App : System.Windows.Application
     private ShelfWindow? _shelfWindow;
     private SettingsWindow? _settingsWindow;
     private ShelfViewModel? _shelfViewModel;
+    private AppSettings _settings = AppSettings.CreateDefault();
+    private SettingsStore? _settingsStore;
+    private ShelfStore? _shelfStore;
     private TrayIconService? _trayIconService;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -30,10 +33,15 @@ public partial class App : System.Windows.Application
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-        var settings = AppSettings.CreateDefault();
+        var appDataRoot = new AppDataPathService().GetAppDataRoot();
+        _settingsStore = new SettingsStore(appDataRoot);
+        _shelfStore = new ShelfStore(appDataRoot);
+
+        _settings = _settingsStore.LoadAsync().GetAwaiter().GetResult();
+        var shelfItems = _shelfStore.LoadAsync().GetAwaiter().GetResult();
         var dockService = new WindowDockService();
 
-        _shelfViewModel = new ShelfViewModel(OpenSettingsWindow);
+        _shelfViewModel = new ShelfViewModel(OpenSettingsWindow, shelfItems);
         _shelfViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShelfViewModel.IsShelfVisible))
@@ -42,7 +50,7 @@ public partial class App : System.Windows.Application
             }
         };
 
-        _shelfWindow = new ShelfWindow(_shelfViewModel, dockService, settings.DockEdge);
+        _shelfWindow = new ShelfWindow(_shelfViewModel, dockService, _settings.DockEdge);
         _shelfWindow.Show();
 
         _trayIconService = new TrayIconService(
@@ -54,6 +62,16 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (_shelfStore is not null && _shelfViewModel is not null)
+        {
+            _shelfStore.SaveAsync(_shelfViewModel.Items).GetAwaiter().GetResult();
+        }
+
+        if (_settingsStore is not null)
+        {
+            _settingsStore.SaveAsync(_settings).GetAwaiter().GetResult();
+        }
+
         _trayIconService?.Dispose();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);
@@ -70,7 +88,7 @@ public partial class App : System.Windows.Application
         _settingsWindow = new SettingsWindow
         {
             Owner = _shelfWindow,
-            DataContext = new SettingsViewModel(),
+            DataContext = new SettingsViewModel(_settings),
         };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();

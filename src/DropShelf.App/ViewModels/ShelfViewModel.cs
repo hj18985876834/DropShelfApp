@@ -11,13 +11,21 @@ public sealed class ShelfViewModel : ObservableObject
     private bool _isShelfVisible;
     private ShelfItem? _selectedItem;
 
-    public ShelfViewModel(Action? openSettings = null)
+    public ShelfViewModel(Action? openSettings = null, IEnumerable<ShelfItem>? initialItems = null)
     {
         _openSettings = openSettings;
         ShowShelfCommand = new RelayCommand(_ => IsShelfVisible = true);
         HideShelfCommand = new RelayCommand(_ => IsShelfVisible = false);
         ToggleShelfCommand = new RelayCommand(_ => IsShelfVisible = !IsShelfVisible);
         OpenSettingsCommand = new RelayCommand(_ => _openSettings?.Invoke());
+
+        if (initialItems is not null)
+        {
+            foreach (var item in initialItems)
+            {
+                Items.Add(item);
+            }
+        }
     }
 
     public ObservableCollection<ShelfItem> Items { get; } = [];

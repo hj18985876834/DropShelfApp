@@ -20,13 +20,35 @@ public sealed class ShelfStore
             return [];
         }
 
-        await using var stream = File.OpenRead(_shelfFilePath);
-        var items = await JsonSerializer.DeserializeAsync<List<ShelfItem>>(stream, cancellationToken: cancellationToken);
-        return items ?? [];
+        try
+        {
+            await using var stream = File.OpenRead(_shelfFilePath);
+            var items = await JsonSerializer.DeserializeAsync<List<ShelfItem>>(
+                stream,
+                PersistenceJsonOptions.Default,
+                cancellationToken);
+
+            if (items is null || items.Any(item => !Enum.IsDefined(item.Type)))
+            {
+                return [];
+            }
+
+            return items;
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+        catch (IOException)
+        {
+            return [];
+        }
     }
 
     public async Task SaveAsync(IEnumerable<ShelfItem> items, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(items);
+
         var directory = Path.GetDirectoryName(_shelfFilePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
@@ -34,6 +56,6 @@ public sealed class ShelfStore
         }
 
         await using var stream = File.Create(_shelfFilePath);
-        await JsonSerializer.SerializeAsync(stream, items, cancellationToken: cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, items, PersistenceJsonOptions.Default, cancellationToken);
     }
 }
