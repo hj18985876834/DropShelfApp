@@ -266,6 +266,8 @@ Pragmatic recommendation:
 
 ## Implementation Milestones
 
+Detailed branch-level feature specs live in `docs/features/`. Each feature branch should use the relevant feature spec as its implementation contract.
+
 1. App shell
    * WPF scaffold
    * tray icon

@@ -1,5 +1,7 @@
 # DropShelf Feature Task List
 
+Detailed implementation contracts live in [docs/features/](features/README.md). Use this file as the high-level roadmap only.
+
 ## Branching Plan
 
 Use focused branches for parallel work:
@@ -28,6 +30,7 @@ Use focused branches for parallel work:
 * Edge handle window.
 * Shelf panel show/hide behavior.
 * Basic settings window entry.
+* Detailed spec: [01-app-shell.md](features/01-app-shell.md)
 
 ### 3. Shelf Persistence
 
@@ -35,6 +38,7 @@ Use focused branches for parallel work:
 * `AppSettings` persistence.
 * Local app data path handling.
 * Missing/corrupt data fallback.
+* Detailed spec: [02-shelf-persistence.md](features/02-shelf-persistence.md)
 
 ### 4. File / Folder Flow
 
@@ -42,12 +46,14 @@ Use focused branches for parallel work:
 * Store path references only.
 * Render file/folder cards.
 * Open, reveal, copy path, remove, clear.
+* Detailed spec: [03-file-folder-flow.md](features/03-file-folder-flow.md)
 
 ### 5. Drag-Out Copy
 
 * Drag shelf items out to Explorer/Desktop.
 * Default copy behavior.
 * Verify original files are not moved.
+* Detailed spec: [04-drag-out-copy.md](features/04-drag-out-copy.md)
 
 ### 6. Text / URL / Image Input
 
@@ -55,6 +61,7 @@ Use focused branches for parallel work:
 * Copy/open text and URL items.
 * Paste or drag pathless images.
 * Store image copies and thumbnails in app-owned folders.
+* Detailed spec: [05-text-url-image-input.md](features/05-text-url-image-input.md)
 
 ### 7. UX Polish
 
@@ -63,6 +70,7 @@ Use focused branches for parallel work:
 * Hover card actions.
 * Single-card selection.
 * Keyboard actions: `Escape`, `Delete`, `Ctrl+C`, `Enter`.
+* Detailed spec: [06-ux-polish.md](features/06-ux-polish.md)
 
 ### 8. Settings
 
@@ -70,6 +78,7 @@ Use focused branches for parallel work:
 * Theme mode: system, light, dark.
 * Density: compact, comfortable.
 * Start with Windows toggle.
+* Detailed spec: [07-settings.md](features/07-settings.md)
 
 ### 9. Installer
 
@@ -78,6 +87,7 @@ Use focused branches for parallel work:
 * Start Menu shortcut.
 * Uninstall entry.
 * Installer smoke test.
+* Detailed spec: [08-installer.md](features/08-installer.md)
 
 ## Deferred
 
