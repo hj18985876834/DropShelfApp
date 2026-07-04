@@ -5,42 +5,125 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="DropShelf"
-        Width="360"
+        Width="396"
         Height="520"
-        MinWidth="320"
-        MinHeight="420"
-        WindowStartupLocation="CenterScreen">
-    <Border Padding="16"
-            BorderThickness="1"
-            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+    <Window.Resources>
+        <Style x:Key="HandleButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="#F2F6F8" />
+            <Setter Property="BorderBrush" Value="#B9C3CC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="#26323A" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8,0,0,8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E3EEF4" />
+                                <Setter Property="BorderBrush" Value="#7F9CAD" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#D2E2EC" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
-            <DockPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="DropShelf"
-                           FontSize="18"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center" />
-                <Button Content="Settings"
-                        DockPanel.Dock="Right"
-                        HorizontalAlignment="Right"
-                        Padding="10,4" />
-            </DockPanel>
+    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="36" />
+        </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="1"
-                    BorderThickness="1"
-                    BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
-                    CornerRadius="6"
-                    Padding="20"
-                    AllowDrop="True">
-                <TextBlock Text="Drop files, text, or images here"
-                           TextAlignment="Center"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-            </Border>
-        </Grid>
-    </Border>
+        <Border x:Name="PanelHost"
+                Grid.Column="0"
+                Margin="0,8,0,8"
+                Padding="16"
+                Background="#F8FAFB"
+                BorderBrush="#C9D2D8"
+                BorderThickness="1"
+                CornerRadius="10,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                    <Button Content="Settings"
+                            Command="{Binding OpenSettingsCommand}"
+                            DockPanel.Dock="Right"
+                            HorizontalAlignment="Right"
+                            Padding="10,4" />
+                    <TextBlock Text="DropShelf"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="#1D2930"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+
+                <Border Grid.Row="1"
+                        AllowDrop="True"
+                        Background="#FFFFFF"
+                        BorderBrush="#C9D2D8"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Width="240">
+                        <TextBlock Text="Drop files, text, or images here"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="#33424A"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Stored items will appear here in the next feature slice."
+                                   Margin="0,8,0,0"
+                                   Foreground="#66747D"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Button Grid.Column="1"
+                Width="36"
+                Height="132"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Center"
+                Command="{Binding ToggleShelfCommand}"
+                Style="{StaticResource HandleButtonStyle}"
+                ToolTip="Show or hide DropShelf">
+            <StackPanel>
+                <TextBlock Text="D"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="S"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Button>
+    </Grid>
 </Window>
