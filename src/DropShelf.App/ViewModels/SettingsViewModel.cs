@@ -15,6 +15,7 @@ public sealed class SettingsViewModel : ObservableObject
     private DensityMode _densityMode;
     private DockEdge _dockEdge;
     private bool _hasStatus;
+    private bool _isApplying;
     private bool _isStatusError;
     private bool _startWithWindows;
     private string _statusMessage = string.Empty;
@@ -47,7 +48,7 @@ public sealed class SettingsViewModel : ObservableObject
         _densityMode = settings.DensityMode;
         _startWithWindows = settings.StartWithWindows;
 
-        ApplyCommand = new RelayCommand(_ => SaveAndApply("Settings saved."));
+        ApplyCommand = new AsyncRelayCommand(_ => SaveAndApplyAsync("Settings saved."));
     }
 
     public IReadOnlyList<DockEdge> DockEdgeOptions { get; } = Enum.GetValues<DockEdge>();
@@ -106,6 +107,12 @@ public sealed class SettingsViewModel : ObservableObject
         private set => SetProperty(ref _isStatusError, value);
     }
 
+    public bool IsApplying
+    {
+        get => _isApplying;
+        private set => SetProperty(ref _isApplying, value);
+    }
+
     public ICommand ApplyCommand { get; }
 
     public AppSettings Settings
@@ -126,14 +133,19 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
-    private void SaveAndApply(string successMessage)
+    private async Task SaveAndApplyAsync(string successMessage)
     {
         var settings = CreateSettings();
 
         try
         {
+            IsApplying = true;
             _startupService?.SetEnabled(settings.StartWithWindows);
-            _settingsStore?.SaveAsync(settings).GetAwaiter().GetResult();
+            if (_settingsStore is not null)
+            {
+                await _settingsStore.SaveAsync(settings);
+            }
+
             _applySettings?.Invoke(settings);
             _lastAppliedSettings = settings;
             SetStatus(successMessage, isError: false);
@@ -142,6 +154,10 @@ public sealed class SettingsViewModel : ObservableObject
         {
             ApplySettingsToProperties(_lastAppliedSettings);
             SetStatus("Unable to save settings.", isError: true);
+        }
+        finally
+        {
+            IsApplying = false;
         }
     }
 

@@ -12,6 +12,8 @@ The app provides small in-house primitives:
 
 * `ObservableObject`
 * `RelayCommand`
+* `AsyncRelayCommand` for WPF commands that await persistence or other
+  asynchronous service calls
 
 Revisit `CommunityToolkit.Mvvm` only if ViewModel boilerplate becomes a real maintenance problem.
 
@@ -23,6 +25,80 @@ Revisit `CommunityToolkit.Mvvm` only if ViewModel boilerplate becomes a real mai
 * Persistent app state: `AppSettings` and shelf records. Store through Services, not directly from Views.
 * File/image state: file paths remain references; app-owned image files live in local app data and are tracked by shelf records.
 * Server state: none. DropShelf V1 is local-only and must not depend on accounts, cloud sync, or external APIs.
+
+### Scenario: Async ViewModel Commands
+
+#### 1. Scope / Trigger
+
+Use `AsyncRelayCommand` when a WPF command needs to call an async service method,
+especially settings or shelf persistence.
+
+#### 2. Signatures
+
+* `new AsyncRelayCommand(Func<object?, Task> executeAsync, Predicate<object?>? canExecute = null)`
+* `AsyncRelayCommand.ExecuteAsync(object? parameter = null)` is the testable
+  entry point for unit tests.
+* `AsyncRelayCommand.IsExecuting` disables command re-entry through
+  `CanExecute`.
+
+#### 3. Contracts
+
+* Command execution must not block the WPF dispatcher with
+  `.GetAwaiter().GetResult()` or `.Result`.
+* ViewModels may expose a separate `IsApplying`/`IsSaving` property when the UI
+  needs status text or loading state.
+* Service awaits inside local persistence stores should use
+  `ConfigureAwait(false)` because startup and shutdown still have a few
+  synchronous shell lifecycle boundaries.
+
+#### 4. Validation & Error Matrix
+
+* Save succeeds -> persist data, apply side effects, show success status.
+* Save or registry update fails with expected local exceptions -> roll back
+  pending settings and show an error status.
+* Command is clicked again while execution is pending -> `CanExecute` returns
+  false and no second save starts.
+
+#### 5. Good/Base/Bad Cases
+
+* Good: settings Apply awaits `SettingsStore.SaveAsync`, disables duplicate
+  Apply clicks, and keeps the settings window responsive.
+* Base: synchronous commands that only update local ViewModel state can continue
+  using `RelayCommand`.
+* Bad: a WPF command calls `settingsStore.SaveAsync(...).GetAwaiter().GetResult()`
+  and deadlocks when the continuation tries to resume on the dispatcher.
+
+#### 6. Tests Required
+
+* Unit tests should call `AsyncRelayCommand.ExecuteAsync()` and await it.
+* Test success persistence and applied state.
+* Test expected failure rollback and error status.
+* Test that a delayed save sets the ViewModel in-flight state and disables
+  command re-entry.
+
+#### 7. Wrong vs Correct
+
+##### Wrong
+
+```csharp
+ApplyCommand = new RelayCommand(_ =>
+{
+    settingsStore.SaveAsync(settings).GetAwaiter().GetResult();
+    ApplySettings(settings);
+});
+```
+
+##### Correct
+
+```csharp
+ApplyCommand = new AsyncRelayCommand(async _ =>
+{
+    IsApplying = true;
+    await settingsStore.SaveAsync(settings);
+    ApplySettings(settings);
+    IsApplying = false;
+});
+```
 
 ---
 

@@ -19,7 +19,8 @@ src/
     ├── App.xaml
     ├── Assets/
     ├── Commands/
-    │   └── RelayCommand.cs
+    │   ├── RelayCommand.cs
+    │   └── AsyncRelayCommand.cs
     ├── Converters/
     ├── Interop/
     ├── Models/
@@ -41,7 +42,8 @@ Use these folders by responsibility:
 * `ViewModels/`: UI state and commands. ViewModels should not directly perform file system, registry, tray, or window-position side effects.
 * `Models/`: serializable app data and enums, such as `ShelfItem`, `AppSettings`, `DockEdge`, `ThemeMode`, and `DensityMode`.
 * `Services/`: side-effect boundaries for persistence, image storage, drag/drop interpretation, tray icon, startup registration, theme, and docking.
-* `Commands/`: small command primitives such as `RelayCommand`.
+* `Commands/`: small command primitives such as `RelayCommand` and
+  `AsyncRelayCommand`.
 * `Resources/`: theme/style resources. Keep visual constants centralized here once styling work begins.
 * `Interop/`: native Windows interop declarations only.
 

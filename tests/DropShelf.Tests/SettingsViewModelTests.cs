@@ -1,6 +1,7 @@
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
+using DropShelf.App.Commands;
 
 namespace DropShelf.Tests;
 
@@ -22,7 +23,7 @@ public sealed class SettingsViewModelTests
         viewModel.DockEdge = DockEdge.Left;
         Assert.IsNull(applied);
 
-        viewModel.ApplyCommand.Execute(null);
+        await ExecuteApplyAsync(viewModel);
 
         var saved = await store.LoadAsync();
         Assert.AreEqual(DockEdge.Left, saved.DockEdge);
@@ -46,7 +47,7 @@ public sealed class SettingsViewModelTests
         viewModel.StartWithWindows = true;
         Assert.IsFalse(registry.Values.ContainsKey("DropShelf"));
 
-        viewModel.ApplyCommand.Execute(null);
+        await ExecuteApplyAsync(viewModel);
 
         var saved = await store.LoadAsync();
         Assert.AreEqual("\"C:\\Apps\\DropShelf.exe\"", registry.Values["DropShelf"]);
@@ -55,7 +56,7 @@ public sealed class SettingsViewModelTests
     }
 
     [TestMethod]
-    public void StartupRegistryFailure_RollsBackToggleAndShowsError()
+    public async Task StartupRegistryFailure_RollsBackToggleAndShowsError()
     {
         var viewModel = new SettingsViewModel(
             AppSettings.CreateDefault(),
@@ -67,11 +68,38 @@ public sealed class SettingsViewModelTests
         Assert.IsTrue(viewModel.StartWithWindows);
         Assert.IsFalse(viewModel.HasStatus);
 
-        viewModel.ApplyCommand.Execute(null);
+        await ExecuteApplyAsync(viewModel);
 
         Assert.IsFalse(viewModel.StartWithWindows);
         Assert.IsTrue(viewModel.HasStatus);
         Assert.IsTrue(viewModel.IsStatusError);
+    }
+
+    [TestMethod]
+    public async Task ApplyCommand_DisablesWhileSaveIsPending()
+    {
+        using var tempDirectory = new TempDirectory();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new DelayedSettingsStore(tempDirectory.Path, gate.Task);
+        var viewModel = new SettingsViewModel(AppSettings.CreateDefault(), store, null, null);
+        var command = (AsyncRelayCommand)viewModel.ApplyCommand;
+
+        var applyTask = command.ExecuteAsync();
+
+        Assert.IsTrue(viewModel.IsApplying);
+        Assert.IsFalse(command.CanExecute(null));
+
+        gate.SetResult();
+        await applyTask;
+
+        Assert.IsFalse(viewModel.IsApplying);
+        Assert.IsTrue(command.CanExecute(null));
+        Assert.IsFalse(viewModel.IsStatusError);
+    }
+
+    private static Task ExecuteApplyAsync(SettingsViewModel viewModel)
+    {
+        return ((AsyncRelayCommand)viewModel.ApplyCommand).ExecuteAsync();
     }
 
     private sealed class FakeStartupRegistry : IStartupRegistry
@@ -109,6 +137,23 @@ public sealed class SettingsViewModelTests
         public void DeleteValue(string name)
         {
             throw new UnauthorizedAccessException();
+        }
+    }
+
+    private sealed class DelayedSettingsStore : SettingsStore
+    {
+        private readonly Task _delay;
+
+        public DelayedSettingsStore(string appDataRoot, Task delay)
+            : base(appDataRoot)
+        {
+            _delay = delay;
+        }
+
+        public override async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
+        {
+            await _delay;
+            await base.SaveAsync(settings, cancellationToken);
         }
     }
 }

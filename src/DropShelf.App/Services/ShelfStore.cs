@@ -26,7 +26,7 @@ public sealed class ShelfStore
             var items = await JsonSerializer.DeserializeAsync<List<ShelfItem>>(
                 stream,
                 PersistenceJsonOptions.Default,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             if (items is null || items.Any(item => !Enum.IsDefined(item.Type)))
             {
@@ -56,6 +56,7 @@ public sealed class ShelfStore
         }
 
         await using var stream = File.Create(_shelfFilePath);
-        await JsonSerializer.SerializeAsync(stream, items, PersistenceJsonOptions.Default, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, items, PersistenceJsonOptions.Default, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

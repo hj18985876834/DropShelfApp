@@ -80,6 +80,11 @@ Shell entry points must remain discoverable without relying only on tray access:
   change. Settings windows should keep pending values and expose an explicit
   apply command so choosing dock edge, density, theme, or startup options does
   not re-layout the shelf while the control is still handling input.
+* Do not synchronously wait on asynchronous persistence from WPF commands or
+  window event handlers. Use an async command pattern for user-triggered saves,
+  expose an in-flight state for duplicate-click prevention, and let local store
+  awaits use `ConfigureAwait(false)` so any unavoidable startup/shutdown sync
+  waits cannot deadlock the dispatcher.
 * Do not let card-level drag-out handlers process mouse events that originate
   from action buttons inside the card. Check `e.OriginalSource` up the visual
   tree and skip drag logic for command buttons, and require the normal WPF

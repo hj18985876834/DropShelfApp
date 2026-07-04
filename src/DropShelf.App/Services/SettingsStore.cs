@@ -4,7 +4,7 @@ using DropShelf.App.Models;
 
 namespace DropShelf.App.Services;
 
-public sealed class SettingsStore
+public class SettingsStore
 {
     private readonly string _settingsFilePath;
 
@@ -26,7 +26,7 @@ public sealed class SettingsStore
             var settings = await JsonSerializer.DeserializeAsync<AppSettings>(
                 stream,
                 PersistenceJsonOptions.Default,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             if (settings is null || !HasValidEnums(settings))
             {
@@ -45,7 +45,7 @@ public sealed class SettingsStore
         }
     }
 
-    public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    public virtual async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -56,7 +56,8 @@ public sealed class SettingsStore
         }
 
         await using var stream = File.Create(_settingsFilePath);
-        await JsonSerializer.SerializeAsync(stream, settings, PersistenceJsonOptions.Default, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, settings, PersistenceJsonOptions.Default, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static bool HasValidEnums(AppSettings settings)
