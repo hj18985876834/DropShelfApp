@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -21,7 +22,7 @@ public partial class HandleWindow : Window
     private readonly WindowDockService _dockService;
     private readonly Action? _dragStarted;
     private readonly Func<WpfDataObject, bool>? _canAcceptDrop;
-    private readonly Action<WpfDataObject>? _acceptDrop;
+    private readonly Func<WpfDataObject, Task>? _acceptDropAsync;
     private readonly Action? _pointerEntered;
     private readonly Action? _pointerLeft;
     private bool _allowClose;
@@ -40,7 +41,7 @@ public partial class HandleWindow : Window
         Action<DockPlacement> dockPlacementChanged,
         Action? dragStarted = null,
         Func<WpfDataObject, bool>? canAcceptDrop = null,
-        Action<WpfDataObject>? acceptDrop = null,
+        Func<WpfDataObject, Task>? acceptDropAsync = null,
         Action? pointerEntered = null,
         Action? pointerLeft = null)
     {
@@ -53,7 +54,7 @@ public partial class HandleWindow : Window
         _dockPlacementChanged = dockPlacementChanged ?? throw new ArgumentNullException(nameof(dockPlacementChanged));
         _dragStarted = dragStarted;
         _canAcceptDrop = canAcceptDrop;
-        _acceptDrop = acceptDrop;
+        _acceptDropAsync = acceptDropAsync;
         _pointerEntered = pointerEntered;
         _pointerLeft = pointerLeft;
 
@@ -131,14 +132,30 @@ public partial class HandleWindow : Window
         e.Handled = true;
     }
 
-    private void HandleButton_OnDrop(object sender, WpfDragEventArgs e)
+    private async void HandleButton_OnDrop(object sender, WpfDragEventArgs e)
     {
         if (_canAcceptDrop?.Invoke(e.Data) == true)
         {
-            _acceptDrop?.Invoke(e.Data);
+            await AcceptDropAsync(e.Data);
         }
 
         e.Handled = true;
+    }
+
+    private async Task AcceptDropAsync(WpfDataObject dataObject)
+    {
+        if (_acceptDropAsync is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _acceptDropAsync(dataObject);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
+        {
+        }
     }
 
     private void HandleButton_OnMouseEnter(object sender, WpfMouseEventArgs e)

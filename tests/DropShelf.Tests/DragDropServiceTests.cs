@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 
@@ -106,6 +108,34 @@ public sealed class DragDropServiceTests
         Assert.HasCount(1, items);
         Assert.AreEqual(ShelfItemType.File, items[0].Type);
         Assert.AreEqual(filePath, items[0].SourcePath);
+    }
+
+    [TestMethod]
+    public async Task CreateItemsAsync_CreatesImageItemFromBitmapData()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData(DataFormats.Bitmap, CreateBitmap(24, 24));
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
+        Assert.IsNotNull(items[0].ImagePath);
+        Assert.IsNotNull(items[0].ThumbnailPath);
+        Assert.IsTrue(File.Exists(items[0].ImagePath));
+        Assert.IsTrue(File.Exists(items[0].ThumbnailPath));
+    }
+
+    [TestMethod]
+    public void CanCreateItems_ChecksFormatsWithoutReadingPayload()
+    {
+        var dataObject = new FormatOnlyDataObject(DataFormats.UnicodeText);
+        var service = new DragDropService();
+
+        Assert.IsTrue(service.CanCreateItems(dataObject));
     }
 
     [TestMethod]
@@ -321,5 +351,100 @@ public sealed class DragDropServiceTests
         });
 
         Assert.IsNull(payload);
+    }
+
+    private static BitmapSource CreateBitmap(int width, int height)
+    {
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        for (var index = 0; index < pixels.Length; index += 4)
+        {
+            pixels[index] = 0x34;
+            pixels[index + 1] = 0x86;
+            pixels[index + 2] = 0xC5;
+            pixels[index + 3] = 0xFF;
+        }
+
+        var bitmap = BitmapSource.Create(
+            width,
+            height,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            pixels,
+            stride);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private sealed class FormatOnlyDataObject : IDataObject
+    {
+        private readonly string _format;
+
+        public FormatOnlyDataObject(string format)
+        {
+            _format = format;
+        }
+
+        public object GetData(string format)
+        {
+            throw new InvalidOperationException("CanCreateItems must not read payload data.");
+        }
+
+        public object GetData(Type format)
+        {
+            throw new InvalidOperationException("CanCreateItems must not read payload data.");
+        }
+
+        public object GetData(string format, bool autoConvert)
+        {
+            throw new InvalidOperationException("CanCreateItems must not read payload data.");
+        }
+
+        public bool GetDataPresent(string format)
+        {
+            return string.Equals(format, _format, StringComparison.Ordinal);
+        }
+
+        public bool GetDataPresent(Type format)
+        {
+            return string.Equals(format.FullName, _format, StringComparison.Ordinal);
+        }
+
+        public bool GetDataPresent(string format, bool autoConvert)
+        {
+            return !autoConvert && string.Equals(format, _format, StringComparison.Ordinal);
+        }
+
+        public string[] GetFormats()
+        {
+            return [_format];
+        }
+
+        public string[] GetFormats(bool autoConvert)
+        {
+            return [_format];
+        }
+
+        public void SetData(object data)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void SetData(string format, object data)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void SetData(Type format, object data)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void SetData(string format, object data, bool autoConvert)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

@@ -151,6 +151,10 @@ Use this contract whenever code reads or writes persistent DropShelf state under
 * File and folder shelf items store `sourcePath` references only.
 * Text and URL shelf items store local `content`.
 * Image shelf items store app-owned `imagePath` and `thumbnailPath`.
+* Shelf record changes must be saved after collection mutations, not only during
+  application exit. Text, URL, and pathless image records are created at runtime
+  and can be lost if the process is killed, validation builds replace the
+  executable, or shutdown skips the normal `OnExit` path.
 
 ### 4. Validation & Error Matrix
 
@@ -165,9 +169,14 @@ Use this contract whenever code reads or writes persistent DropShelf state under
 
 * Good: save settings or shelf records, reload them, and preserve enum values,
   item IDs, timestamps, and item order.
+* Good: adding, removing, or clearing shelf records queues a durable shelf save
+  from the app composition layer while `OnExit` still performs a final
+  synchronous save of the latest ViewModel snapshot.
 * Base: no local files exist on first launch; the app starts with default
   settings and an empty shelf.
 * Bad: partially written or hand-edited invalid JSON must not crash app startup.
+* Bad: only saving `shelf.json` from `OnExit`; this makes runtime-created text,
+  URL, and image items disappear after abnormal termination.
 
 ### 6. Tests Required
 
@@ -177,6 +186,8 @@ Use temporary directories, never real `%LOCALAPPDATA%`.
 * Assert both stores create parent directories on save.
 * Assert settings round-trip with non-default values.
 * Assert shelf records round-trip in order with stable IDs.
+* Assert text, URL, and image shelf records round-trip with `content`,
+  `imagePath`, and `thumbnailPath`.
 * Assert missing and malformed files fall back conservatively.
 * Assert unknown enum values fall back conservatively.
 
@@ -221,6 +232,11 @@ cleared, or persisted.
 * `ShelfItemViewModel.RevealCommand` opens Explorer at the item.
 * `ShelfItemViewModel.RemoveCommand` removes the record only.
 * `ShelfViewModel.ClearAllCommand` clears shelf records only.
+* `DragDropService.TryCreateDragOutPayload(ShelfItem)` returns a
+  `DragOutPayloadResult` with either a WPF file-drop payload or a user-facing
+  refusal message.
+* `DragDropService.MaxDragOutBytes` is the V1 per-item drag-out limit.
+* `DragDropService.InternalDragFormat` marks drags started from DropShelf.
 
 ### 3. Contracts
 
@@ -229,6 +245,17 @@ cleared, or persisted.
 * `SourcePath` is the absolute original path.
 * `DisplayName` defaults to the file or folder name.
 * File/folder items never copy bytes into app data.
+* Drag-out uses standard `DataFormats.FileDrop` with `DragDropEffects.Copy`.
+* Every drag started from DropShelf carries `InternalDragFormat`.
+* Drop-in creation must ignore any data object carrying `InternalDragFormat`,
+  even if it also contains `FileDrop`, so dragging a shelf card back into the
+  app cannot duplicate records.
+* Drag-out is allowed only when the source still exists and its size can be
+  read.
+* V1 drag-out refuses files or recursively measured folders larger than
+  `DragDropService.MaxDragOutBytes` at the point where the drag threshold is
+  crossed. Show the result message on the card and do not call WPF
+  `DragDrop.DoDragDrop` for the oversized item.
 * File/folder remove and clear flows never delete, move, rename, or copy the
   original source.
 * Missing source paths remain visible and report `IsMissing = true`.
@@ -242,6 +269,13 @@ cleared, or persisted.
 * Path does not exist at drop time -> ignored.
 * Duplicate existing path -> allowed in V1.
 * Path exists at display time -> open/reveal commands can execute.
+* Path exists and size <= `MaxDragOutBytes` -> drag-out payload can be created.
+* Path exists but size > `MaxDragOutBytes` -> no external drag/drop starts; card
+  status says the item is too large.
+* Path size cannot be read -> no external drag/drop starts; card status says
+  size cannot be read.
+* Internal DropShelf drag is dropped back into DropShelf -> no records are
+  created.
 * Path no longer exists at display time -> missing state; remove remains
   available.
 
@@ -268,6 +302,11 @@ Use temporary directories/files.
 * Assert clear all does not delete source files.
 * Assert missing source path yields missing state and disables open/reveal.
 * Assert copy path sends the original `SourcePath` to the clipboard boundary.
+* Assert drag-out payload reports `Copy` for valid file/folder paths.
+* Assert oversized file/folder returns an invalid result with a user-facing
+  status message.
+* Assert missing or inaccessible source returns an invalid drag-out result.
+* Assert internal drag data is ignored by drop-in creation.
 
 ### 7. Wrong vs Correct
 
@@ -311,6 +350,10 @@ drag/drop and turns it into a persisted shelf item.
 * `new ImageStore(appDataRoot)` owns image cache paths under the DropShelf app
   data root.
 * `ImageStore.SaveImage(BitmapSource)` returns a `ShelfItem` with `Type = Image`.
+* `ImageStore.SaveImageAsync(BitmapSource, CancellationToken)` is the UI-facing
+  path for clipboard/drag bitmap input.
+* `DragDropService.CreateItemsAsync(IDataObject, ImageStore, CancellationToken)`
+  creates shelf records and moves pathless image encoding off the dispatcher.
 * `ImageStore.DeleteImageFiles(ShelfItem)` removes app-owned image files for an
   image shelf item.
 * `ImagePathConverter` loads thumbnail paths with `BitmapCacheOption.OnLoad`
@@ -324,12 +367,23 @@ drag/drop and turns it into a persisted shelf item.
   records continue to store only `sourcePath`.
 * Explorer image file drops remain file references. Do not duplicate an image
   file just because its extension is an image type.
+* Image file references may still show a card thumbnail by binding preview UI to
+  `ShelfItemViewModel.ImagePreviewPath`, not by changing the record type.
+* Common previewable image extensions include `.png`, `.jpg`, `.jpeg`, `.gif`,
+  `.bmp`, `.webp`, `.tif`, `.tiff`, `.ico`, `.heic`, `.heif`, `.avif`, and
+  Windows imaging variants such as `.wdp`.
 
 ### 4. Validation & Error Matrix
 
 * Clipboard/drop data has file-drop format -> handle as file/folder first.
+* Drag-over and accept-preview checks must only call
+  `GetDataPresent(format, autoConvert: false)`; do not call `GetData` or
+  inspect file/text payloads in high-frequency preview events.
 * Clipboard/drop data has bitmap format without file-drop format -> save an
-  app-owned original and thumbnail.
+  app-owned original and thumbnail in the background, then add the finished
+  image shelf record.
+* Explorer file-drop data points to a supported image file -> keep
+  `Type = File`, keep `SourcePath`, and expose `ImagePreviewPath = SourcePath`.
 * Missing image or thumbnail on reload -> keep the card and show a missing
   state; do not crash startup.
 * Delete image item -> delete app-owned original and thumbnail if present.
@@ -339,8 +393,19 @@ drag/drop and turns it into a persisted shelf item.
 
 * Good: paste a screenshot, restart, see the thumbnail, then remove the item and
   confirm both cached files are gone.
+* Good: clipboard/drop handlers read the WPF data object on the dispatcher, then
+  await `CreateItemsAsync`; PNG encoding and thumbnail generation do not block
+  shell input.
+* Good: `CanCreateItems` only checks native formats, so Windows delayed
+  clipboard/drag rendering is triggered once at paste/drop time instead of on
+  every `DragOver`.
 * Base: image cache file was manually deleted; app still loads the record and
   shows a missing/corrupt state.
+* Bad: using `GetData` in `DragOver`, `CanCreateItems`, or other preview paths;
+  this can repeatedly force the source application to render text or bitmap
+  data before the user drops anything.
+* Bad: calling `ImageStore.SaveImage` directly from a paste or drop event blocks
+  the dispatcher while PNG encoding and disk writes complete.
 * Bad: binding an image path directly in WPF can keep the file locked and make
   remove/clear fail to delete the app-owned thumbnail.
 
@@ -348,11 +413,17 @@ drag/drop and turns it into a persisted shelf item.
 
 * Assert `ImageStore.SaveImage` creates original and thumbnail paths under app
   data.
+* Assert `ImageStore.SaveImageAsync` and `DragDropService.CreateItemsAsync`
+  create image records and cached files for bitmap input.
+* Assert `DragDropService.CanCreateItems` accepts supported formats without
+  reading payload data.
 * Assert `ImageStore.DeleteImageFiles` removes existing app-owned files and
   ignores missing files.
 * Assert remove/clear in `ShelfViewModel` deletes app-owned image files but
   leaves original file/folder source paths untouched.
 * Assert `DragDropService` treats Explorer image file drops as file records.
+* Assert `ShelfItemViewModel` exposes image preview paths for common image file
+  references and does not expose previews for non-image files.
 
 ### 7. Wrong vs Correct
 

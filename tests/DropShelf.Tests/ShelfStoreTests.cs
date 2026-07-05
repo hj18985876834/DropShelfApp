@@ -61,6 +61,50 @@ public sealed class ShelfStoreTests
     }
 
     [TestMethod]
+    public async Task SaveAsync_RoundTripsTextUrlAndImageRecords()
+    {
+        using var tempDirectory = new TempDirectory();
+        var store = new ShelfStore(tempDirectory.Path);
+        var expected = new[]
+        {
+            new ShelfItem
+            {
+                Type = ShelfItemType.Text,
+                DisplayName = "Note",
+                Content = "Line one\r\nLine two",
+                CreatedAt = DateTimeOffset.Parse("2026-07-04T08:35:00Z"),
+            },
+            new ShelfItem
+            {
+                Type = ShelfItemType.Url,
+                DisplayName = "example.com",
+                Content = "https://example.com/path?q=1",
+                CreatedAt = DateTimeOffset.Parse("2026-07-04T08:36:00Z"),
+            },
+            new ShelfItem
+            {
+                Type = ShelfItemType.Image,
+                DisplayName = "image",
+                ImagePath = @"C:\Users\me\AppData\Local\DropShelf\images\originals\image.png",
+                ThumbnailPath = @"C:\Users\me\AppData\Local\DropShelf\images\thumbs\image.png",
+                CreatedAt = DateTimeOffset.Parse("2026-07-04T08:37:00Z"),
+            },
+        };
+
+        await store.SaveAsync(expected);
+        var actual = await store.LoadAsync();
+
+        Assert.HasCount(3, actual);
+        Assert.AreEqual(ShelfItemType.Text, actual[0].Type);
+        Assert.AreEqual(expected[0].Content, actual[0].Content);
+        Assert.AreEqual(ShelfItemType.Url, actual[1].Type);
+        Assert.AreEqual(expected[1].Content, actual[1].Content);
+        Assert.AreEqual(ShelfItemType.Image, actual[2].Type);
+        Assert.AreEqual(expected[2].ImagePath, actual[2].ImagePath);
+        Assert.AreEqual(expected[2].ThumbnailPath, actual[2].ThumbnailPath);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_ReturnsEmptyListWhenJsonIsMalformed()
     {
         using var tempDirectory = new TempDirectory();

@@ -49,6 +49,18 @@ public sealed class ImageStore
         };
     }
 
+    public Task<ShelfItem> SaveImageAsync(BitmapSource image, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        var frozenImage = GetBackgroundSafeImage(image);
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return SaveImage(frozenImage);
+        }, cancellationToken);
+    }
+
     public void DeleteImageFiles(ShelfItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -74,6 +86,24 @@ public sealed class ImageStore
 
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+    private static BitmapSource GetBackgroundSafeImage(BitmapSource source)
+    {
+        if (source.IsFrozen)
+        {
+            return source;
+        }
+
+        if (source.CanFreeze)
+        {
+            source.Freeze();
+            return source;
+        }
+
+        var copy = new WriteableBitmap(source);
+        copy.Freeze();
+        return copy;
     }
 
     private static BitmapSource CreateThumbnail(BitmapSource source)

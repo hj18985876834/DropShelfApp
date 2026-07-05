@@ -24,13 +24,14 @@ public sealed class DragDropService
             return false;
         }
 
-        if (dataObject.GetDataPresent(WpfDataFormats.FileDrop))
+        if (HasNativeFormat(dataObject, WpfDataFormats.FileDrop))
         {
-            return CanCreateFileSystemItems(dataObject);
+            return true;
         }
 
-        return dataObject.GetDataPresent(WpfDataFormats.Bitmap)
-            || !string.IsNullOrWhiteSpace(GetText(dataObject));
+        return HasNativeFormat(dataObject, WpfDataFormats.Bitmap)
+            || HasNativeFormat(dataObject, WpfDataFormats.UnicodeText)
+            || HasNativeFormat(dataObject, WpfDataFormats.Text);
     }
 
     public bool CanCreateFileSystemItems(WpfDataObject dataObject)
@@ -41,7 +42,7 @@ public sealed class DragDropService
             return false;
         }
 
-        return GetDroppedPaths(dataObject).Any(IsSupportedPath);
+        return HasNativeFormat(dataObject, WpfDataFormats.FileDrop);
     }
 
     public IReadOnlyList<ShelfItem> CreateItems(WpfDataObject dataObject, ImageStore imageStore)
@@ -62,6 +63,34 @@ public sealed class DragDropService
         if (TryGetBitmap(dataObject, out var bitmap))
         {
             return [imageStore.SaveImage(bitmap)];
+        }
+
+        var textItem = CreateTextOrUrlItem(GetText(dataObject));
+        return textItem is null ? [] : [textItem];
+    }
+
+    public async Task<IReadOnlyList<ShelfItem>> CreateItemsAsync(
+        WpfDataObject dataObject,
+        ImageStore imageStore,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dataObject);
+        ArgumentNullException.ThrowIfNull(imageStore);
+
+        if (IsInternalDrag(dataObject))
+        {
+            return [];
+        }
+
+        if (dataObject.GetDataPresent(WpfDataFormats.FileDrop))
+        {
+            return CreateFileSystemItems(dataObject);
+        }
+
+        if (TryGetBitmap(dataObject, out var bitmap))
+        {
+            var item = await imageStore.SaveImageAsync(bitmap, cancellationToken).ConfigureAwait(true);
+            return [item];
         }
 
         var textItem = CreateTextOrUrlItem(GetText(dataObject));
@@ -183,7 +212,12 @@ public sealed class DragDropService
     public bool IsInternalDrag(WpfDataObject dataObject)
     {
         ArgumentNullException.ThrowIfNull(dataObject);
-        return dataObject.GetDataPresent(InternalDragFormat);
+        return HasNativeFormat(dataObject, InternalDragFormat);
+    }
+
+    private static bool HasNativeFormat(WpfDataObject dataObject, string format)
+    {
+        return dataObject.GetDataPresent(format, autoConvert: false);
     }
 
     private static IEnumerable<string> GetDroppedPaths(WpfDataObject dataObject)

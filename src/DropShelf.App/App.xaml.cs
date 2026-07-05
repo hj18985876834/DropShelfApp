@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using DropShelf.App.Models;
@@ -13,6 +14,8 @@ public partial class App : System.Windows.Application
     private const string SingleInstanceMutexName = "DropShelf.AppShell";
     private static readonly TimeSpan HoverCollapseDelay = TimeSpan.FromMilliseconds(220);
 
+    private readonly object _shelfSaveGate = new();
+    private readonly SemaphoreSlim _shelfSaveSemaphore = new(1, 1);
     private Mutex? _singleInstanceMutex;
     private ShelfWindow? _shelfWindow;
     private HandleWindow? _handleWindow;
@@ -28,6 +31,8 @@ public partial class App : System.Windows.Application
     private bool _isHandleDragging;
     private bool _isHoverExpanded;
     private DispatcherTimer? _hoverCollapseTimer;
+    private ShelfItem[]? _pendingShelfSaveSnapshot;
+    private Task? _shelfSaveWorker;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -83,6 +88,7 @@ public partial class App : System.Windows.Application
                 _trayIconService?.SetShelfVisible(_shelfViewModel.IsShelfVisible);
             }
         };
+        _shelfViewModel.Items.CollectionChanged += (_, _) => QueueShelfSave();
 
         _shelfWindow = new ShelfWindow(
             _shelfViewModel,
@@ -101,9 +107,9 @@ public partial class App : System.Windows.Application
             UpdateDockPlacement,
             OnHandleDragStarted,
             data => dragDropService.CanCreateItems(data),
-            data =>
+            async data =>
             {
-                var items = dragDropService.CreateItems(data, imageStore);
+                var items = await dragDropService.CreateItemsAsync(data, imageStore);
                 if (items.Count > 0)
                 {
                     _shelfViewModel.AddItems(items);
@@ -125,10 +131,8 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        if (_shelfStore is not null && _shelfViewModel is not null)
-        {
-            _shelfStore.SaveAsync(_shelfViewModel.GetShelfItems()).GetAwaiter().GetResult();
-        }
+        _isShuttingDown = true;
+        SaveShelfSynchronously();
 
         if (_settingsStore is not null)
         {
@@ -137,7 +141,92 @@ public partial class App : System.Windows.Application
 
         DisposeTrayIcon();
         _singleInstanceMutex?.Dispose();
+        _shelfSaveSemaphore.Dispose();
         base.OnExit(e);
+    }
+
+    private void QueueShelfSave()
+    {
+        if (_isShuttingDown || _shelfStore is null || _shelfViewModel is null)
+        {
+            return;
+        }
+
+        var snapshot = _shelfViewModel.GetShelfItems().ToArray();
+        lock (_shelfSaveGate)
+        {
+            _pendingShelfSaveSnapshot = snapshot;
+            _shelfSaveWorker ??= SaveShelfSnapshotsAsync();
+        }
+    }
+
+    private async Task SaveShelfSnapshotsAsync()
+    {
+        while (true)
+        {
+            ShelfItem[] snapshot;
+            lock (_shelfSaveGate)
+            {
+                if (_isShuttingDown)
+                {
+                    _pendingShelfSaveSnapshot = null;
+                    _shelfSaveWorker = null;
+                    return;
+                }
+
+                if (_pendingShelfSaveSnapshot is null)
+                {
+                    _shelfSaveWorker = null;
+                    return;
+                }
+
+                snapshot = _pendingShelfSaveSnapshot;
+                _pendingShelfSaveSnapshot = null;
+            }
+
+            try
+            {
+                await _shelfSaveSemaphore.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (_shelfStore is not null)
+                    {
+                        await _shelfStore.SaveAsync(snapshot).ConfigureAwait(false);
+                    }
+                }
+                finally
+                {
+                    _shelfSaveSemaphore.Release();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private void SaveShelfSynchronously()
+    {
+        if (_shelfStore is null || _shelfViewModel is null)
+        {
+            return;
+        }
+
+        var snapshot = _shelfViewModel.GetShelfItems().ToArray();
+        lock (_shelfSaveGate)
+        {
+            _pendingShelfSaveSnapshot = null;
+        }
+
+        _shelfSaveSemaphore.Wait();
+        try
+        {
+            _shelfStore.SaveAsync(snapshot).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            _shelfSaveSemaphore.Release();
+        }
     }
 
     private void OpenSettingsWindow()

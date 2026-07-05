@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -128,7 +129,7 @@ public partial class ShelfWindow : Window
         else if (e.Key == System.Windows.Input.Key.V &&
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            PasteClipboardContent();
+            _ = PasteClipboardContentAsync();
             e.Handled = true;
         }
 
@@ -239,9 +240,9 @@ public partial class ShelfWindow : Window
         ClearDragState(e, collapseAutoExpanded: false);
     }
 
-    private void DropZone_OnDrop(object sender, WpfDragEventArgs e)
+    private async void DropZone_OnDrop(object sender, WpfDragEventArgs e)
     {
-        HandleDrop(e);
+        await HandleDropAsync(e);
     }
 
     private void ShelfHost_OnDragOver(object sender, WpfDragEventArgs e)
@@ -254,9 +255,9 @@ public partial class ShelfWindow : Window
         ClearDragState(e, collapseAutoExpanded: true);
     }
 
-    private void ShelfHost_OnDrop(object sender, WpfDragEventArgs e)
+    private async void ShelfHost_OnDrop(object sender, WpfDragEventArgs e)
     {
-        HandleDrop(e);
+        await HandleDropAsync(e);
     }
 
     private void ShelfHost_OnMouseEnter(object sender, WpfMouseEventArgs e)
@@ -285,20 +286,27 @@ public partial class ShelfWindow : Window
         e.Handled = true;
     }
 
-    private void HandleDrop(WpfDragEventArgs e)
+    private async Task HandleDropAsync(WpfDragEventArgs e)
     {
-        var items = _dragDropService.CreateItems(e.Data, _imageStore);
-        if (items.Count > 0)
+        try
         {
-            _viewModel.AddItems(items);
-            if (_wasExpandedByDrag)
+            var items = await _dragDropService.CreateItemsAsync(e.Data, _imageStore);
+            if (items.Count > 0)
             {
-                _viewModel.IsShelfVisible = false;
+                _viewModel.AddItems(items);
+                if (_wasExpandedByDrag)
+                {
+                    _viewModel.IsShelfVisible = false;
+                }
+                else
+                {
+                    _viewModel.IsShelfVisible = true;
+                }
             }
-            else
-            {
-                _viewModel.IsShelfVisible = true;
-            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
+        {
+            _viewModel.IsDragOverUnsupported = true;
         }
 
         _wasExpandedByDrag = false;
@@ -328,7 +336,7 @@ public partial class ShelfWindow : Window
         }
     }
 
-    private void PasteClipboardContent()
+    private async Task PasteClipboardContentAsync()
     {
         var dataObject = WpfClipboard.GetDataObject();
         if (dataObject is null)
@@ -337,16 +345,23 @@ public partial class ShelfWindow : Window
             return;
         }
 
-        var items = _dragDropService.CreateItems(dataObject, _imageStore);
-        if (items.Count == 0)
+        try
+        {
+            var items = await _dragDropService.CreateItemsAsync(dataObject, _imageStore);
+            if (items.Count == 0)
+            {
+                _viewModel.IsDragOverUnsupported = true;
+                return;
+            }
+
+            _viewModel.AddItems(items);
+            _viewModel.IsDragOverUnsupported = false;
+            _viewModel.IsShelfVisible = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
         {
             _viewModel.IsDragOverUnsupported = true;
-            return;
         }
-
-        _viewModel.AddItems(items);
-        _viewModel.IsDragOverUnsupported = false;
-        _viewModel.IsShelfVisible = true;
     }
 
     private void ShelfItem_OnPreviewMouseMove(object sender, WpfMouseEventArgs e)

@@ -30,6 +30,24 @@ public sealed class ImageStoreTests
     }
 
     [TestMethod]
+    public async Task SaveImageAsync_CreatesOriginalAndThumbnailUnderAppData()
+    {
+        using var tempDirectory = new TempDirectory();
+        var store = new ImageStore(tempDirectory.Path);
+        var bitmap = CreateBitmap(320, 160);
+
+        var item = await store.SaveImageAsync(bitmap);
+
+        Assert.AreEqual(ShelfItemType.Image, item.Type);
+        Assert.IsNotNull(item.ImagePath);
+        Assert.IsNotNull(item.ThumbnailPath);
+        Assert.IsTrue(File.Exists(item.ImagePath));
+        Assert.IsTrue(File.Exists(item.ThumbnailPath));
+        Assert.IsTrue(store.IsAppOwnedImagePath(item.ImagePath));
+        Assert.IsTrue(store.IsAppOwnedImagePath(item.ThumbnailPath));
+    }
+
+    [TestMethod]
     public void DeleteImageFiles_RemovesAppOwnedOriginalAndThumbnail()
     {
         using var tempDirectory = new TempDirectory();
