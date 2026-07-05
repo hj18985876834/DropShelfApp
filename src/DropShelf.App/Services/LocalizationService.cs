@@ -39,6 +39,27 @@ public sealed class LocalizationService
         };
     }
 
+    public string ThemeName(ThemeMode value)
+    {
+        return value switch
+        {
+            ThemeMode.System => IsChinese ? "跟随系统" : "System",
+            ThemeMode.Light => IsChinese ? "浅色" : "Light",
+            ThemeMode.Dark => IsChinese ? "深色" : "Dark",
+            _ => value.ToString(),
+        };
+    }
+
+    public string DensityName(DensityMode value)
+    {
+        return value switch
+        {
+            DensityMode.Compact => IsChinese ? "紧凑" : "Compact",
+            DensityMode.Comfortable => IsChinese ? "舒适" : "Comfortable",
+            _ => value.ToString(),
+        };
+    }
+
     public string TypeDisplayName(ShelfItemType type)
     {
         return type switch
@@ -105,7 +126,6 @@ public sealed record AppText(
     string ContactLabel,
     string ApplyText,
     string CloseText,
-    string AppDescription,
     string UsageGuide,
     string Developer,
     string SettingsSaved,
@@ -160,7 +180,7 @@ public sealed record AppText(
     string DragOutSourceMissing)
 {
     public static AppText Chinese { get; } = new(
-        "DropShelf 设置",
+        "EdgeTuck 设置",
         "设置",
         "偏好设置",
         "收纳栏位置",
@@ -187,7 +207,6 @@ public sealed record AppText(
         "联系方式",
         "应用",
         "关闭",
-        "这是由江江学长开发的一款运行于 Windows 本地桌面的临时收纳栏工具，可存放文件、文件夹、文本、链接与图片。",
         "将内容拖放到屏幕边缘手柄或打开后的收纳栏中，需要时可复制、打开、在资源管理器中定位、移除，或再拖回其他窗口使用。",
         "江江学长",
         "设置已保存。",
@@ -209,12 +228,12 @@ public sealed record AppText(
         "在资源管理器中定位",
         "移除",
         "源文件缺失",
-        "显示或隐藏 DropShelf",
+        "显示或隐藏 EdgeTuck",
         "显示收纳栏",
         "隐藏收纳栏",
         "设置",
         "退出",
-        "清空 DropShelf",
+        "清空 EdgeTuck",
         "未命名项目",
         "文件",
         "文件夹",
@@ -242,7 +261,7 @@ public sealed record AppText(
         "源文件缺失。");
 
     public static AppText English { get; } = new(
-        "DropShelf Settings",
+        "EdgeTuck Settings",
         "Settings",
         "Preferences",
         "Shelf position",
@@ -269,7 +288,6 @@ public sealed record AppText(
         "Contact",
         "Apply",
         "Close",
-        "A local Windows desktop shelf developed by Jiangjiang Xuezhang for temporarily storing files, folders, text, links, and images.",
         "Drag content onto the screen-edge handle or open shelf, then copy, open, reveal, remove, or drag items back out when needed.",
         "Jiangjiang Xuezhang",
         "Settings saved.",
@@ -291,12 +309,12 @@ public sealed record AppText(
         "Reveal in Explorer",
         "Remove",
         "Source missing",
-        "Show or hide DropShelf",
+        "Show or hide EdgeTuck",
         "Show Shelf",
         "Hide Shelf",
         "Settings",
         "Quit",
-        "Clear DropShelf",
+        "Clear EdgeTuck",
         "Untitled item",
         "File",
         "Folder",

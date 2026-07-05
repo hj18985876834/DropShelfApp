@@ -13,14 +13,14 @@
     <FileVersion>0.1.0.0</FileVersion>
     <InformationalVersion>0.1.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <Title>DropShelf</Title>
-    <AssemblyTitle>DropShelf</AssemblyTitle>
-    <FileDescription>DropShelf</FileDescription>
-    <Product>DropShelf</Product>
+    <Title>EdgeTuck</Title>
+    <AssemblyTitle>EdgeTuck</AssemblyTitle>
+    <FileDescription>EdgeTuck</FileDescription>
+    <Product>EdgeTuck</Product>
     <AssemblyName>DropShelf.App</AssemblyName>
-    <Company>DropShelf</Company>
-    <Authors>DropShelf</Authors>
-    <Description>DropShelf desktop shelf utility</Description>
+    <Company>EdgeTuck</Company>
+    <Authors>EdgeTuck</Authors>
+    <Description>EdgeTuck desktop edge shelf utility</Description>
     <SatelliteResourceLanguages>en;zh-Hans;zh-Hant</SatelliteResourceLanguages>
   </PropertyGroup>
 

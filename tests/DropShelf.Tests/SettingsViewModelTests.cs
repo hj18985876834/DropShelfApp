@@ -2,6 +2,10 @@ using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
 using DropShelf.App.Commands;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text;
 
 namespace DropShelf.Tests;
 
@@ -13,13 +17,17 @@ public sealed class SettingsViewModelTests
     {
         var viewModel = new SettingsViewModel(AppSettings.CreateDefault());
 
-        Assert.AreEqual("DropShelf", viewModel.AppName);
-        Assert.AreEqual(
-            "这是由江江学长开发的一款运行于 Windows 本地桌面的临时收纳栏工具，可存放文件、文件夹、文本、链接与图片。",
-            viewModel.AppDescription);
+        Assert.AreEqual("EdgeTuck", viewModel.AppName);
+        Assert.IsTrue(viewModel.AppDescription.Contains("贴边常驻", StringComparison.Ordinal));
+        Assert.IsTrue(viewModel.AppDescription.Contains("不会上传到云端", StringComparison.Ordinal));
         Assert.AreEqual(LanguageMode.Chinese, viewModel.LanguageMode);
-        Assert.AreEqual("DropShelf 设置", viewModel.WindowTitle);
+        Assert.AreEqual("EdgeTuck 设置", viewModel.WindowTitle);
         Assert.AreEqual("语言", viewModel.LanguageLabel);
+        Assert.AreEqual("跟随系统", viewModel.GetThemeModeDisplayName(ThemeMode.System));
+        Assert.AreEqual("浅色", viewModel.GetThemeModeDisplayName(ThemeMode.Light));
+        Assert.AreEqual("深色", viewModel.GetThemeModeDisplayName(ThemeMode.Dark));
+        Assert.AreEqual("紧凑", viewModel.GetDensityModeDisplayName(DensityMode.Compact));
+        Assert.AreEqual("舒适", viewModel.GetDensityModeDisplayName(DensityMode.Comfortable));
         Assert.AreEqual("英文", viewModel.GetLanguageModeDisplayName(LanguageMode.English));
         Assert.IsTrue(viewModel.UsageGuide.Contains("拖放", StringComparison.Ordinal));
         Assert.IsFalse(string.IsNullOrWhiteSpace(viewModel.Version));
@@ -36,11 +44,85 @@ public sealed class SettingsViewModelTests
             LanguageMode = LanguageMode.English,
         };
 
-        Assert.AreEqual("DropShelf Settings", viewModel.WindowTitle);
+        Assert.AreEqual("EdgeTuck Settings", viewModel.WindowTitle);
         Assert.AreEqual("Language", viewModel.LanguageLabel);
+        Assert.AreEqual("System", viewModel.GetThemeModeDisplayName(ThemeMode.System));
+        Assert.AreEqual("Light", viewModel.GetThemeModeDisplayName(ThemeMode.Light));
+        Assert.AreEqual("Dark", viewModel.GetThemeModeDisplayName(ThemeMode.Dark));
+        Assert.AreEqual("Compact", viewModel.GetDensityModeDisplayName(DensityMode.Compact));
+        Assert.AreEqual("Comfortable", viewModel.GetDensityModeDisplayName(DensityMode.Comfortable));
         Assert.AreEqual("Chinese", viewModel.GetLanguageModeDisplayName(LanguageMode.Chinese));
-        Assert.IsTrue(viewModel.AppDescription.Contains("local Windows desktop shelf", StringComparison.Ordinal));
+        Assert.IsTrue(viewModel.AppDescription.Contains("local Windows edge shelf", StringComparison.Ordinal));
         Assert.AreEqual("Jiangjiang Xuezhang", viewModel.Developer);
+    }
+
+    [TestMethod]
+    public void LanguageMode_UpdatesSettingsOptionDisplayNames()
+    {
+        var viewModel = new SettingsViewModel(AppSettings.CreateDefault());
+        var themeOption = viewModel.ThemeModeOptions.Single(option => option.Value == ThemeMode.System);
+        var densityOption = viewModel.DensityModeOptions.Single(option => option.Value == DensityMode.Comfortable);
+        var languageOption = viewModel.LanguageModeOptions.Single(option => option.Value == LanguageMode.English);
+
+        Assert.AreEqual("跟随系统", themeOption.DisplayName);
+        Assert.AreEqual("舒适", densityOption.DisplayName);
+        Assert.AreEqual("英文", languageOption.DisplayName);
+
+        viewModel.LanguageMode = LanguageMode.English;
+
+        Assert.AreSame(themeOption, viewModel.ThemeModeOptions.Single(option => option.Value == ThemeMode.System));
+        Assert.AreSame(densityOption, viewModel.DensityModeOptions.Single(option => option.Value == DensityMode.Comfortable));
+        Assert.AreSame(languageOption, viewModel.LanguageModeOptions.Single(option => option.Value == LanguageMode.English));
+        Assert.AreEqual("System", themeOption.DisplayName);
+        Assert.AreEqual("Comfortable", densityOption.DisplayName);
+        Assert.AreEqual("English", languageOption.DisplayName);
+    }
+
+    [TestMethod]
+    public async Task CheckForUpdates_SyncsBrandingFromLatestManifestWhenAlreadyCurrent()
+    {
+        using var tempDirectory = new TempDirectory();
+        var manifestJson = """
+            {
+              "version": "0.1.0",
+              "installerUrl": "https://example.com/EdgeTuckSetup.exe",
+              "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "sizeBytes": 1,
+              "branding": {
+                "displayName": "EdgeTuck Daily",
+                "descriptions": {
+                  "zh-CN": "用于同步的中文介绍。",
+                  "en-US": "English description from manifest."
+                }
+              },
+              "releaseNotes": {
+                "zh-CN": "当前版本。",
+                "en-US": "Current version."
+              }
+            }
+            """;
+        var updateService = new UpdateService(
+            new HttpClient(new StubHttpMessageHandler(manifestJson)),
+            new Uri("https://example.com/latest.json"),
+            Path.Combine(tempDirectory.Path, "updates"));
+        var viewModel = new SettingsViewModel(
+            AppSettings.CreateDefault(),
+            null,
+            null,
+            updateService,
+            null,
+            null);
+
+        await ((AsyncRelayCommand)viewModel.CheckForUpdatesCommand).ExecuteAsync();
+
+        Assert.AreEqual("EdgeTuck Daily", viewModel.AppName);
+        Assert.AreEqual("用于同步的中文介绍。", viewModel.AppDescription);
+        Assert.IsFalse(viewModel.IsUpdateAvailable);
+        Assert.AreEqual("当前已是最新版本。", viewModel.StatusMessage);
+
+        viewModel.LanguageMode = LanguageMode.English;
+
+        Assert.AreEqual("English description from manifest.", viewModel.AppDescription);
     }
 
     [TestMethod]
@@ -216,6 +298,25 @@ public sealed class SettingsViewModelTests
         {
             await _delay;
             await base.SaveAsync(settings, cancellationToken);
+        }
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly string _content;
+
+        public StubHttpMessageHandler(string content)
+        {
+            _content = content;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_content, Encoding.UTF8, "application/json"),
+            };
+            return Task.FromResult(response);
         }
     }
 }

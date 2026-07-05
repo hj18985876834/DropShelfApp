@@ -1,6 +1,6 @@
-#define MyAppName "DropShelf"
+#define MyAppName "EdgeTuck"
 #define MyAppVersion "0.1.0"
-#define MyAppPublisher "DropShelf"
+#define MyAppPublisher "EdgeTuck"
 #define MyAppExeName "DropShelf.App.exe"
 #define PublishDir "..\artifacts\publish\win-x64"
 
@@ -14,7 +14,7 @@ DefaultGroupName={#MyAppName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=Output
-OutputBaseFilename=DropShelfSetup
+OutputBaseFilename=EdgeTuckSetup
 SetupIconFile=..\src\DropShelf.App\Assets\DropShelf.ico
 Compression=lzma
 SolidCompression=yes
@@ -48,6 +48,7 @@ chinesesimp.AdditionalShortcuts=附加快捷方式:
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#MyAppName}"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "DropShelf"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent

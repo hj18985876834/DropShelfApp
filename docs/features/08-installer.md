@@ -2,7 +2,7 @@
 
 ## Goal
 
-Package DropShelf as a traditional Windows installer for current-user installation.
+Package EdgeTuck as a traditional Windows installer for current-user installation.
 
 ## Branch
 
@@ -15,7 +15,7 @@ Initial implementation used `feature/installer`. Ongoing release maintenance use
 
 ## User Flow
 
-1. User downloads `DropShelfSetup.exe`.
+1. User downloads `EdgeTuckSetup.exe`.
 2. User runs installer.
 3. Installer does not require administrator privileges.
 4. App installs for current user.
@@ -51,7 +51,7 @@ Compiler path:
 Installer output:
 
 ```text
-installer/Output/DropShelfSetup.exe
+installer/Output/EdgeTuckSetup.exe
 ```
 
 ### Install Scope
@@ -79,7 +79,7 @@ installer/Output/DropShelfSetup.exe
 ### Uninstall
 
 * Removes installed app files.
-* Removes the DropShelf HKCU startup Run value.
+* Removes the EdgeTuck HKCU startup Run value and the legacy DropShelf Run value.
 * Leaves `%LOCALAPPDATA%/DropShelf/` user data by default.
 * Does not remove unrelated files.
 
@@ -97,7 +97,7 @@ No app data schema changes.
 
 Installer variables should align with:
 
-* app name: `DropShelf`
+* app name: `EdgeTuck`
 * version: `0.1.0` until release process changes it
 * executable: `DropShelf.App.exe`
 * release tag: `v<version>`, for example `v0.1.0`
@@ -113,24 +113,25 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
 The manifest must point to a GitHub Release asset:
 
 ```text
-https://github.com/hj18985876834/DropShelfApp/releases/download/v<version>/DropShelfSetup.exe
+https://github.com/hj18985876834/DropShelfApp/releases/download/v<version>/EdgeTuckSetup.exe
 ```
 
-The manifest must include the semantic version, installer URL, SHA256, byte size, release date, mandatory flag, and bilingual release notes.
+The manifest must include the semantic version, installer URL, SHA256, byte size, release date, mandatory flag, bilingual branding metadata, and bilingual release notes.
 
 For `0.1.0`, the baseline release metadata is:
 
 ```text
 Release tag: v0.1.0
-Installer: DropShelfSetup.exe
+Installer: EdgeTuckSetup.exe
 Size: 51089185 bytes
 SHA256: 5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055
+Display name: EdgeTuck
 ```
 
 The app downloads newer installers to:
 
 ```text
-%LOCALAPPDATA%/DropShelf/updates/<version>/DropShelfSetup.exe
+%LOCALAPPDATA%/DropShelf/updates/<version>/<installer file name from manifest URL>
 ```
 
 The downloaded installer must pass SHA256 verification before launch.
@@ -158,13 +159,14 @@ The downloaded installer must pass SHA256 verification before launch.
 * Optional desktop shortcut works when selected.
 * Uninstaller is registered.
 * Uninstall removes app files.
-* Uninstall removes the DropShelf HKCU startup Run value.
+* Uninstall removes the EdgeTuck HKCU startup Run value and the legacy DropShelf Run value.
 * User data under `%LOCALAPPDATA%/DropShelf/` remains.
 * Reinstall can launch app.
 * `dotnet build`, `dotnet test`, and `dotnet format --verify-no-changes` pass before packaging.
 * GitHub Release tag uses `v<version>`, not `main`.
 * Release asset size and SHA256 match `updates/latest.json`.
 * Manual update check reports latest when local version equals manifest version.
+* Manual update check synchronizes settings-page display name and introduction from `updates/latest.json` branding metadata.
 
 ## Tests
 

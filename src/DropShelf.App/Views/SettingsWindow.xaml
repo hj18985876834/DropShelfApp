@@ -1,7 +1,6 @@
 <Window x:Class="DropShelf.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:converters="clr-namespace:DropShelf.App.Converters"
         Title="{Binding WindowTitle}"
         Width="460"
         Height="620"
@@ -10,8 +9,6 @@
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-        <converters:LanguageModeDisplayConverter x:Key="LanguageModeDisplayConverter" />
-
         <Style x:Key="SettingsButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="MinHeight" Value="32" />
             <Setter Property="Padding" Value="12,5" />
@@ -159,36 +156,28 @@
                     <StackPanel Grid.Row="0" Grid.Column="2">
                         <TextBlock Text="{Binding ThemeLabel}" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding ThemeModeOptions}"
-                                  SelectedItem="{Binding ThemeMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding ThemeMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   Style="{StaticResource SettingsComboStyle}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="0">
                         <TextBlock Text="{Binding DensityLabel}" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding DensityModeOptions}"
-                                  SelectedItem="{Binding DensityMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding DensityMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   Style="{StaticResource SettingsComboStyle}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="2">
                         <TextBlock Text="{Binding LanguageLabel}" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox ItemsSource="{Binding LanguageModeOptions}"
-                                  SelectedItem="{Binding LanguageMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  Style="{StaticResource SettingsComboStyle}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock>
-                                        <TextBlock.Text>
-                                            <MultiBinding Converter="{StaticResource LanguageModeDisplayConverter}">
-                                                <Binding />
-                                                <Binding RelativeSource="{RelativeSource AncestorType={x:Type ComboBox}}"
-                                                         Path="DataContext" />
-                                            </MultiBinding>
-                                        </TextBlock.Text>
-                                    </TextBlock>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding LanguageMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Style="{StaticResource SettingsComboStyle}" />
                     </StackPanel>
 
                     <CheckBox Grid.Row="2"

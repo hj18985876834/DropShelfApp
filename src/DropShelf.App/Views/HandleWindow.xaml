@@ -1,7 +1,7 @@
 <Window x:Class="DropShelf.App.Views.HandleWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="DropShelf Handle"
+        Title="EdgeTuck Handle"
         Width="36"
         Height="132"
         ResizeMode="NoResize"
@@ -87,7 +87,7 @@
                        FontFamily="Segoe MDL2 Assets"
                        FontSize="17"
                        HorizontalAlignment="Center"
-                       ToolTip="DropShelf" />
+                       ToolTip="EdgeTuck" />
             <Border Width="18"
                     Height="2"
                     Margin="0,7,0,0"

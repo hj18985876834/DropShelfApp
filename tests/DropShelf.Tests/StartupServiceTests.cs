@@ -40,6 +40,35 @@ public sealed class StartupServiceTests
         Assert.IsFalse(service.IsEnabled());
     }
 
+    [TestMethod]
+    public void DefaultEntry_MigratesLegacyDropShelfStartupEntry()
+    {
+        var registry = new FakeStartupRegistry();
+        registry.Values["DropShelf"] = "\"C:\\Apps\\DropShelf.exe\"";
+        var service = new StartupService(registry, StartupService.DefaultEntryName, @"C:\Apps\DropShelf.exe");
+
+        Assert.IsTrue(service.IsEnabled());
+
+        service.SetEnabled(true);
+
+        Assert.AreEqual("\"C:\\Apps\\DropShelf.exe\"", registry.Values["EdgeTuck"]);
+        Assert.IsFalse(registry.Values.ContainsKey("DropShelf"));
+    }
+
+    [TestMethod]
+    public void DefaultEntry_DisableRemovesCurrentAndLegacyStartupEntries()
+    {
+        var registry = new FakeStartupRegistry();
+        registry.Values["EdgeTuck"] = "\"C:\\Apps\\DropShelf.exe\"";
+        registry.Values["DropShelf"] = "\"C:\\Apps\\DropShelf.exe\"";
+        var service = new StartupService(registry, StartupService.DefaultEntryName, @"C:\Apps\DropShelf.exe");
+
+        service.SetEnabled(false);
+
+        Assert.IsFalse(registry.Values.ContainsKey("EdgeTuck"));
+        Assert.IsFalse(registry.Values.ContainsKey("DropShelf"));
+    }
+
     private sealed class FakeStartupRegistry : IStartupRegistry
     {
         public Dictionary<string, string> Values { get; } = [];

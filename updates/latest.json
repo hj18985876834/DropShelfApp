@@ -1,10 +1,17 @@
 {
   "version": "0.1.0",
-  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/EdgeTuckSetup.exe",
   "sha256": "5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055",
   "sizeBytes": 51089185,
   "releaseDate": "2026-07-05",
   "mandatory": false,
+  "branding": {
+    "displayName": "EdgeTuck",
+    "descriptions": {
+      "zh-CN": "EdgeTuck 是一款贴边常驻的 Windows 临时收纳工具，适合在整理文件、收集素材、搬运文本链接或处理中途截图时，把内容先放到屏幕边缘，稍后再复制、打开、定位、移除或拖回其它窗口。所有数据保存在本机，文件和文件夹仅记录原始路径，粘贴图片保存到本地应用数据目录，不需要账号，也不会上传到云端。",
+      "en-US": "EdgeTuck is a local Windows edge shelf for temporarily holding files, folders, text, links, and images while you organize work, collect references, move snippets, or handle screenshots. It keeps data on this PC, stores files and folders as original path references, saves pasted images under local app data, and does not require an account or cloud service."
+    }
+  },
   "releaseNotes": {
     "zh-CN": "初始版本。",
     "en-US": "Initial release."

@@ -59,7 +59,7 @@ public sealed class UpdateService
         var version = AppVersion.Parse(manifest.Version);
         var targetDirectory = Path.Combine(_updatesRoot, version.ToString());
         Directory.CreateDirectory(targetDirectory);
-        var targetPath = Path.Combine(targetDirectory, "DropShelfSetup.exe");
+        var targetPath = Path.Combine(targetDirectory, manifest.InstallerFileName);
         var tempPath = targetPath + ".download";
 
         using var response = await _httpClient.GetAsync(manifest.InstallerUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
@@ -149,10 +149,24 @@ public sealed class UpdateManifest
 
     public bool Mandatory { get; init; }
 
+    public AppBranding? Branding { get; init; }
+
     public UpdateReleaseNotes ReleaseNotes { get; init; } = new();
 
     [JsonIgnore]
     public Uri InstallerUri => new(InstallerUrl);
+
+    [JsonIgnore]
+    public string InstallerFileName
+    {
+        get
+        {
+            var fileName = Path.GetFileName(InstallerUri.LocalPath);
+            return string.IsNullOrWhiteSpace(fileName)
+                ? "EdgeTuckSetup.exe"
+                : fileName;
+        }
+    }
 
     public string ReleaseNotesFor(bool useChinese)
     {

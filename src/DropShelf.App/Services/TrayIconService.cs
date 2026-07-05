@@ -46,7 +46,7 @@ public sealed class TrayIconService : IDisposable
         {
             ContextMenuStrip = _menu,
             Icon = _appIcon ?? SystemIcons.Application,
-            Text = "DropShelf",
+            Text = AppBranding.DefaultDisplayName,
             Visible = true,
         };
 

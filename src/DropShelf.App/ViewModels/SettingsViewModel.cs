@@ -17,6 +17,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly StartupService? _startupService;
     private readonly UpdateService? _updateService;
     private readonly Action? _shutdownApplication;
+    private AppBranding _appBranding = AppBranding.Default;
     private AppSettings _lastAppliedSettings;
     private UpdateManifest? _availableUpdate;
     private DensityMode _densityMode;
@@ -32,6 +33,9 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _startWithWindows;
     private string _statusMessage = string.Empty;
     private ThemeMode _themeMode;
+    private readonly IReadOnlyList<LocalizedOption<ThemeMode>> _themeModeOptions;
+    private readonly IReadOnlyList<LocalizedOption<DensityMode>> _densityModeOptions;
+    private readonly IReadOnlyList<LocalizedOption<LanguageMode>> _languageModeOptions;
 
     public SettingsViewModel()
         : this(AppSettings.CreateDefault())
@@ -75,6 +79,15 @@ public sealed class SettingsViewModel : ObservableObject
         _densityMode = settings.DensityMode;
         _languageMode = settings.LanguageMode;
         _startWithWindows = settings.StartWithWindows;
+        _themeModeOptions = Enum.GetValues<ThemeMode>()
+            .Select(value => new LocalizedOption<ThemeMode>(value, GetThemeModeDisplayName(value)))
+            .ToArray();
+        _densityModeOptions = Enum.GetValues<DensityMode>()
+            .Select(value => new LocalizedOption<DensityMode>(value, GetDensityModeDisplayName(value)))
+            .ToArray();
+        _languageModeOptions = Enum.GetValues<LanguageMode>()
+            .Select(value => new LocalizedOption<LanguageMode>(value, GetLanguageModeDisplayName(value)))
+            .ToArray();
 
         ApplyCommand = new AsyncRelayCommand(_ => SaveAndApplyAsync(SavedMessage));
         CheckForUpdatesCommand = new AsyncRelayCommand(_ => CheckForUpdatesAsync(), _ => _updateService is not null);
@@ -84,11 +97,11 @@ public sealed class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<DockEdge> DockEdgeOptions { get; } = Enum.GetValues<DockEdge>();
 
-    public IReadOnlyList<ThemeMode> ThemeModeOptions { get; } = Enum.GetValues<ThemeMode>();
+    public IReadOnlyList<LocalizedOption<ThemeMode>> ThemeModeOptions => _themeModeOptions;
 
-    public IReadOnlyList<DensityMode> DensityModeOptions { get; } = Enum.GetValues<DensityMode>();
+    public IReadOnlyList<LocalizedOption<DensityMode>> DensityModeOptions => _densityModeOptions;
 
-    public IReadOnlyList<LanguageMode> LanguageModeOptions { get; } = Enum.GetValues<LanguageMode>();
+    public IReadOnlyList<LocalizedOption<LanguageMode>> LanguageModeOptions => _languageModeOptions;
 
     private AppText Text => _localizationService.Text;
 
@@ -134,9 +147,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     public string CloseText => Text.CloseText;
 
-    public string AppName => "DropShelf";
+    public string AppName => _appBranding.DisplayNameOrDefault();
 
-    public string AppDescription => Text.AppDescription;
+    public string AppDescription => _appBranding.DescriptionFor(_localizationService.IsChinese);
 
     public string UsageGuide => Text.UsageGuide;
 
@@ -324,6 +337,7 @@ public sealed class SettingsViewModel : ObservableObject
             SetStatus(Text.CheckingForUpdates, isError: false);
 
             var result = await _updateService.CheckForUpdatesAsync(Version);
+            ApplyBranding(result.Manifest.Branding);
             if (!result.IsUpdateAvailable)
             {
                 SetStatus(Text.NoUpdateAvailable, isError: false);
@@ -427,6 +441,18 @@ public sealed class SettingsViewModel : ObservableObject
         IsStatusError = false;
     }
 
+    private void ApplyBranding(AppBranding? branding)
+    {
+        if (branding is null)
+        {
+            return;
+        }
+
+        _appBranding = branding;
+        OnPropertyChanged(nameof(AppName));
+        OnPropertyChanged(nameof(AppDescription));
+    }
+
     private void ApplySettingsToProperties(AppSettings settings)
     {
         _dockEdge = settings.DockEdge;
@@ -453,6 +479,22 @@ public sealed class SettingsViewModel : ObservableObject
         };
     }
 
+    public string GetThemeModeDisplayName(ThemeMode value)
+    {
+        return value switch
+        {
+            _ => _localizationService.ThemeName(value),
+        };
+    }
+
+    public string GetDensityModeDisplayName(DensityMode value)
+    {
+        return value switch
+        {
+            _ => _localizationService.DensityName(value),
+        };
+    }
+
     private string SavedMessage => Text.SettingsSaved;
 
     private string SaveErrorMessage => Text.SettingsSaveFailed;
@@ -461,6 +503,7 @@ public sealed class SettingsViewModel : ObservableObject
 
     private void RaiseLocalizedTextChanged()
     {
+        RefreshOptionDisplayNames();
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(PreferencesTitle));
@@ -482,10 +525,28 @@ public sealed class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(ContactLabel));
         OnPropertyChanged(nameof(ApplyText));
         OnPropertyChanged(nameof(CloseText));
+        OnPropertyChanged(nameof(AppName));
         OnPropertyChanged(nameof(AppDescription));
         OnPropertyChanged(nameof(UsageGuide));
         OnPropertyChanged(nameof(Developer));
-        OnPropertyChanged(nameof(LanguageModeOptions));
+    }
+
+    private void RefreshOptionDisplayNames()
+    {
+        foreach (var option in ThemeModeOptions)
+        {
+            option.DisplayName = GetThemeModeDisplayName(option.Value);
+        }
+
+        foreach (var option in DensityModeOptions)
+        {
+            option.DisplayName = GetDensityModeDisplayName(option.Value);
+        }
+
+        foreach (var option in LanguageModeOptions)
+        {
+            option.DisplayName = GetLanguageModeDisplayName(option.Value);
+        }
     }
 
     private static string GetApplicationVersion()
@@ -501,5 +562,24 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         return assembly.GetName().Version?.ToString() ?? "Unknown";
+    }
+}
+
+public sealed class LocalizedOption<T> : ObservableObject
+{
+    private string _displayName;
+
+    public LocalizedOption(T value, string displayName)
+    {
+        Value = value;
+        _displayName = displayName;
+    }
+
+    public T Value { get; }
+
+    public string DisplayName
+    {
+        get => _displayName;
+        set => SetProperty(ref _displayName, value);
     }
 }

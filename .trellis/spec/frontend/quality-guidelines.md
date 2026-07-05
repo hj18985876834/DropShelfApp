@@ -37,6 +37,48 @@ DropShelf is a WPF desktop utility. Quality checks must cover both C# correctnes
 * Use services for side-effect boundaries.
 * Keep WPF UI styling quiet and Windows-native / Fluent-inspired.
 * Validate actual desktop behavior incrementally on Windows, especially drag/drop, tray, window docking, startup, and installer behavior.
+* Keep the root `README.md` and `README.zh-CN.md` synchronized with
+  user-visible installation, settings, update, uninstall, and data-location
+  behavior. Feature specs under `docs/features/` are development contracts;
+  README files are the user-facing entry points.
+
+---
+
+## Documentation Sync Rules
+
+Documentation updates are part of the feature or bug-fix scope when behavior is
+visible to users, operators, or future development sessions.
+
+Update both `README.md` and `README.zh-CN.md` when changing:
+
+* installation or uninstall behavior;
+* startup-with-Windows behavior or registry keys;
+* settings fields, labels, defaults, or persistence locations;
+* update-check, download, installer launch, release manifest, or checksum flow;
+* supported input/output types, drag/drop behavior, shortcuts, tray actions, or
+  item actions;
+* local data paths, app-owned image storage, logs, or cleanup expectations;
+* development validation commands, fixed publish paths, or packaging commands.
+
+Update `docs/packaging.md` when changing installer, publish, GitHub Release,
+update manifest, release asset, versioning, SHA256, or smoke-test behavior.
+
+Update the relevant `docs/features/*.md` contract when changing acceptance
+criteria, user workflows, validation matrices, or ownership boundaries for a
+feature branch.
+
+Before completing a task, check documentation freshness:
+
+1. Did this change affect anything a user can see or follow?
+2. Did it change an install/update/uninstall command, path, registry key, or
+   release artifact?
+3. Did it change local data shape, storage location, retention, or cleanup?
+4. Did it change development validation or packaging steps?
+5. If any answer is yes, update the relevant docs in the same change and keep
+   English and Chinese README content equivalent.
+
+Do not mark a user-visible change complete if the documentation still describes
+the previous behavior.
 
 ---
 
@@ -137,6 +179,28 @@ Apply fixes in this order:
 
 Do not accept workaround fixes such as corner margins, arbitrary cursor offsets,
 or repeated live snapping if the real issue is an unstable interaction boundary.
+
+### WPF Localized Option Controls
+
+For localized `ComboBox` options, do not bind directly to enum values and rely
+on `ItemTemplate` converters for display text. WPF can update the drop-down
+items while leaving the closed selection box cached, or it can briefly lose the
+current `SelectedValue` when `ItemsSource` is replaced during a language switch.
+
+Use stable option objects instead:
+
+```csharp
+public sealed class LocalizedOption<T> : ObservableObject
+{
+    public T Value { get; }
+    public string DisplayName { get; set; }
+}
+```
+
+Bind with `DisplayMemberPath="DisplayName"`, `SelectedValuePath="Value"`, and
+`SelectedValue` to the persisted enum property. On language changes, keep the
+same option object instances and update their `DisplayName` values so both the
+drop-down list and the closed selection box refresh without clearing selection.
 
 ---
 

@@ -15,10 +15,12 @@ public interface IStartupRegistry
 
 public sealed class StartupService
 {
-    public const string DefaultEntryName = "DropShelf";
+    public const string DefaultEntryName = "EdgeTuck";
+    private const string LegacyEntryName = "DropShelf";
 
     private readonly string _entryName;
     private readonly string _executablePath;
+    private readonly string? _legacyEntryName;
     private readonly IStartupRegistry _registry;
 
     public StartupService()
@@ -27,6 +29,11 @@ public sealed class StartupService
     }
 
     public StartupService(IStartupRegistry registry, string entryName, string executablePath)
+        : this(registry, entryName, executablePath, string.Equals(entryName, DefaultEntryName, StringComparison.Ordinal) ? LegacyEntryName : null)
+    {
+    }
+
+    private StartupService(IStartupRegistry registry, string entryName, string executablePath, string? legacyEntryName)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _entryName = string.IsNullOrWhiteSpace(entryName)
@@ -35,6 +42,7 @@ public sealed class StartupService
         _executablePath = string.IsNullOrWhiteSpace(executablePath)
             ? throw new ArgumentException("Executable path is required.", nameof(executablePath))
             : executablePath;
+        _legacyEntryName = legacyEntryName;
     }
 
     public bool IsEnabled()
@@ -42,7 +50,13 @@ public sealed class StartupService
         try
         {
             var value = _registry.GetValue(_entryName);
-            return string.Equals(Unquote(value), _executablePath, StringComparison.OrdinalIgnoreCase);
+            if (string.Equals(Unquote(value), _executablePath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var legacyValue = _legacyEntryName is null ? null : _registry.GetValue(_legacyEntryName);
+            return string.Equals(Unquote(legacyValue), _executablePath, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
         {
@@ -55,10 +69,19 @@ public sealed class StartupService
         if (enabled)
         {
             _registry.SetValue(_entryName, Quote(_executablePath));
+            if (_legacyEntryName is not null)
+            {
+                _registry.DeleteValue(_legacyEntryName);
+            }
+
             return;
         }
 
         _registry.DeleteValue(_entryName);
+        if (_legacyEntryName is not null)
+        {
+            _registry.DeleteValue(_legacyEntryName);
+        }
     }
 
     private static string GetCurrentExecutablePath()
