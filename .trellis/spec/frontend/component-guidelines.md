@@ -69,6 +69,102 @@ The shell uses two top-level WPF windows:
 `HandleWindow` should update current app settings through a callback. It must
 not write settings files directly.
 
+### Scenario: Stable Edge Handle Dragging And Hover Expansion
+
+#### 1. Scope / Trigger
+
+Use this contract for any change to the persistent edge handle, free dragging,
+snap-to-edge docking, hover expansion, drag-over expansion, or panel placement.
+This area is interaction-critical because WPF window size changes, mouse capture,
+screen coordinates, DPI scaling, and hover events can all affect hit testing.
+
+#### 2. Signatures
+
+* `new DockPlacement(DockEdge dockEdge, double dockOffsetRatio)` represents the
+  snapped edge and normalized position along that edge.
+* `WindowDockService.ApplyHandle(Window, DockEdge, double)` positions the stable
+  handle window from persisted settings.
+* `WindowDockService.ApplyPanel(Window panelWindow, Window handleWindow,
+  DockEdge)` positions the expanded panel relative to the current handle window.
+* `WindowDockService.PlaceAt(Window, double left, double top)` moves the handle
+  during free drag and clamps it inside `SystemParameters.WorkArea`.
+* `WindowDockService.SnapToNearestEdge(Point screenCenter)` returns the final
+  dock placement on mouse-up.
+
+#### 3. Contracts
+
+* The handle and shelf panel are separate top-level windows.
+* The handle window remains the same collapsed size for the entire drag.
+* Drag movement uses the current mouse screen point minus the pointer offset
+  captured at mouse-down. Convert `PointToScreen` physical pixels through
+  `CompositionTarget.TransformFromDevice` before assigning `Window.Left` or
+  `Window.Top`.
+* The snap target and `DockOffsetRatio` are calculated only after mouse-up.
+* Hover expansion is a separate transient state from explicit click/tray
+  expansion.
+* Hover collapse uses a short timer and confirms the pointer is outside both
+  `HandleWindow` and `ShelfWindow`.
+* External `DragOver` expansion must be idempotent show behavior, never toggle.
+
+#### 4. Validation & Error Matrix
+
+* Drag threshold not crossed -> treat as click, not drag.
+* Drag threshold crossed -> hide any hover-expanded panel and move only the
+  handle window.
+* Mouse released after drag -> snap to nearest edge and persist
+  `DockPlacement`.
+* Pointer moves from handle to panel -> keep hover-expanded panel open.
+* Pointer leaves both handle and panel -> delayed collapse only if the panel was
+  hover-expanded.
+* Pointer reaches a corner -> allow ratios `0` or `1`; do not add artificial
+  safe margins.
+
+#### 5. Good/Base/Bad Cases
+
+* Good: dragging from any point inside the handle keeps that same point under the
+  cursor until mouse-up, including at display corners.
+* Good: click, hover, external drag-over, and tray show/hide are separate
+  commands with explicit state transitions.
+* Base: settings reset returns to the right edge at ratio `0.5`.
+* Bad: moving the handle by repeatedly reading `e.GetPosition(this)` after the
+  window has moved; the local coordinate space changes and causes cursor
+  offset.
+* Bad: changing panel size, docking, visibility, or snapped placement while the
+  handle drag is active.
+
+#### 6. Tests Required
+
+* Unit-test `WindowDockService.SnapToNearestEdge` for each edge and corner
+  ratios.
+* Unit-test collapsed handle sizes for vertical and horizontal edges.
+* Unit-test settings persistence for `DockOffsetRatio`.
+* Manually validate on Windows: drag to all four corners, reselect from each
+  corner, hover-open and hover-close, click toggle, drag while panel is open,
+  and drop external content onto the handle.
+
+#### 7. Wrong vs Correct
+
+##### Wrong
+
+```csharp
+var current = e.GetPosition(this);
+window.Left = dragStartWindowLeft + current.X - dragStartLocalPoint.X;
+```
+
+This uses a coordinate space that moves with the window, so the delta can drift
+away from the real mouse position.
+
+##### Correct
+
+```csharp
+var screenPoint = PointToScreen(e.GetPosition(this));
+var dipPoint = source.CompositionTarget.TransformFromDevice.Transform(screenPoint);
+window.Left = dipPoint.X - pointerOffset.X;
+```
+
+Use screen coordinates converted to WPF device-independent pixels, then subtract
+the original pointer offset inside the handle.
+
 ---
 
 ## Props Conventions
