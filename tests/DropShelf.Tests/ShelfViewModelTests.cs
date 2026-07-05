@@ -109,6 +109,26 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void ClearAll_DoesNotRemoveItemsWhenConfirmationIsRejected()
+    {
+        var confirmedItemCount = 0;
+        var item = new ShelfItem { Type = ShelfItemType.Text, DisplayName = "Note", Content = "keep" };
+        var viewModel = CreateViewModel(
+            initialItems: [item],
+            confirmClearAll: count =>
+            {
+                confirmedItemCount = count;
+                return false;
+            });
+
+        viewModel.ClearAllCommand.Execute(null);
+
+        Assert.HasCount(1, viewModel.Items);
+        Assert.AreEqual(1, confirmedItemCount);
+        Assert.IsFalse(viewModel.IsEmpty);
+    }
+
+    [TestMethod]
     public void RemoveItemCommand_DeletesAppOwnedImageFiles()
     {
         using var tempDirectory = new TempDirectory();
@@ -199,7 +219,7 @@ public sealed class ShelfViewModelTests
         viewModel.Items[0].CopyPathCommand.Execute(null);
 
         Assert.AreEqual(item.SourcePath, clipboard.Text);
-        Assert.AreEqual("Path copied.", viewModel.Items[0].StatusMessage);
+        Assert.AreEqual("路径已复制。", viewModel.Items[0].StatusMessage);
     }
 
     [TestMethod]
@@ -372,7 +392,7 @@ public sealed class ShelfViewModelTests
         viewModel.CopySelectedCommand.Execute(null);
 
         Assert.AreEqual("full note content", clipboard.Text);
-        Assert.AreEqual("Copied.", viewModel.SelectedItem?.StatusMessage);
+        Assert.AreEqual("已复制。", viewModel.SelectedItem?.StatusMessage);
     }
 
     [TestMethod]
@@ -407,13 +427,15 @@ public sealed class ShelfViewModelTests
         IEnumerable<ShelfItem>? initialItems = null,
         IFileActionService? fileActionService = null,
         IClipboardService? clipboardService = null,
-        ImageStore? imageStore = null)
+        ImageStore? imageStore = null,
+        Func<int, bool>? confirmClearAll = null)
     {
         return new ShelfViewModel(
             initialItems: initialItems,
             fileActionService: fileActionService ?? new FakeFileActionService(),
             clipboardService: clipboardService ?? new FakeClipboardService(),
-            imageStore: imageStore);
+            imageStore: imageStore,
+            confirmClearAll: confirmClearAll);
     }
 
     private sealed class FakeClipboardService : IClipboardService

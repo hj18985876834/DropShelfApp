@@ -245,6 +245,10 @@ Shell entry points must remain discoverable without relying only on tray access:
   from action buttons inside the card. Check `e.OriginalSource` up the visual
   tree and skip drag logic for command buttons, and require the normal WPF
   minimum drag distance before calling `DragDrop.DoDragDrop`.
+* WPF `ContextMenu` is rendered outside the shelf window visual tree. Bind card
+  menus through `PlacementTarget.DataContext`, and treat an open card menu as
+  pointer presence so hover-collapse cannot hide the menu before the user can
+  choose an item.
 * Do not call `DragDrop.DoDragDrop` with an empty or app-private-only data object
   to simulate a blocked external file drag. Windows targets will not treat that
   as a real file drag, so the user sees a broken drag interaction. If a
@@ -256,3 +260,8 @@ Shell entry points must remain discoverable without relying only on tray access:
   `DragEventArgs`, `MouseEventArgs`, `Grid`, `Color`, and `ColorConverter`.
   Prefer local aliases such as `WpfClipboard = System.Windows.Clipboard` or
   `WpfGrid = System.Windows.Controls.Grid` in WPF code-behind/services.
+* Do not bind WPF `Run.Text` directly to read-only ViewModel properties. WPF can
+  treat `Run.Text` bindings as source-updating during layout and crash startup
+  with "cannot bind TwoWay or OneWayToSource to a read-only property." Use a
+  `TextBlock` with `Mode=OneWay` for read-only display values such as item
+  counts.

@@ -37,6 +37,14 @@ public sealed class ImagePathConverter : IValueConverter
         {
             return null;
         }
+        catch (FileFormatException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
         catch (System.Runtime.InteropServices.COMException)
         {
             return null;

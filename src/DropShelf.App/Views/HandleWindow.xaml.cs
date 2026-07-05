@@ -124,6 +124,7 @@ public partial class HandleWindow : Window
     {
         var accepted = _canAcceptDrop?.Invoke(e.Data) == true;
         e.Effects = accepted ? WpfDragDropEffects.Copy : WpfDragDropEffects.None;
+        HandleButton.Tag = accepted ? "DropAccepted" : null;
         if (accepted)
         {
             _showShelf();
@@ -132,8 +133,15 @@ public partial class HandleWindow : Window
         e.Handled = true;
     }
 
+    private void HandleButton_OnDragLeave(object sender, WpfDragEventArgs e)
+    {
+        HandleButton.Tag = null;
+        e.Handled = true;
+    }
+
     private async void HandleButton_OnDrop(object sender, WpfDragEventArgs e)
     {
+        HandleButton.Tag = null;
         if (_canAcceptDrop?.Invoke(e.Data) == true)
         {
             await AcceptDropAsync(e.Data);

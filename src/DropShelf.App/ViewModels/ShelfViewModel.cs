@@ -13,6 +13,7 @@ public sealed class ShelfViewModel : ObservableObject
     private readonly IClipboardService _clipboardService;
     private readonly IFileActionService _fileActionService;
     private readonly ImageStore? _imageStore;
+    private readonly Func<int, bool>? _confirmClearAll;
     private readonly DensityMode _densityMode;
     private readonly ThemeMode _themeMode;
     private bool _isDragOverAccepted;
@@ -27,6 +28,7 @@ public sealed class ShelfViewModel : ObservableObject
         IFileActionService? fileActionService = null,
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
+        Func<int, bool>? confirmClearAll = null,
         DensityMode densityMode = DensityMode.Compact,
         ThemeMode themeMode = ThemeMode.System)
     {
@@ -34,6 +36,7 @@ public sealed class ShelfViewModel : ObservableObject
         _fileActionService = fileActionService ?? new FileActionService();
         _clipboardService = clipboardService ?? new ClipboardService();
         _imageStore = imageStore;
+        _confirmClearAll = confirmClearAll;
         _densityMode = densityMode;
         _themeMode = themeMode;
 
@@ -92,6 +95,8 @@ public sealed class ShelfViewModel : ObservableObject
     }
 
     public bool HasItems => !IsEmpty;
+
+    public int ItemCount => Items.Count;
 
     public ShelfItemViewModel? SelectedItem
     {
@@ -152,6 +157,16 @@ public sealed class ShelfViewModel : ObservableObject
 
     public void ClearAll()
     {
+        if (Items.Count == 0)
+        {
+            return;
+        }
+
+        if (_confirmClearAll?.Invoke(Items.Count) == false)
+        {
+            return;
+        }
+
         foreach (var item in Items)
         {
             _imageStore?.DeleteImageFiles(item.Item);
@@ -220,6 +235,7 @@ public sealed class ShelfViewModel : ObservableObject
     {
         IsEmpty = Items.Count == 0;
         OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(ItemCount));
 
         if (ClearAllCommand is RelayCommand clearCommand)
         {

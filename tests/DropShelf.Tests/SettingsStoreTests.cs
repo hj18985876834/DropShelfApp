@@ -19,6 +19,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
+        Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
     }
 
@@ -34,6 +35,7 @@ public sealed class SettingsStoreTests
             DockOffsetRatio = 0.25,
             ThemeMode = ThemeMode.Dark,
             DensityMode = DensityMode.Comfortable,
+            LanguageMode = LanguageMode.English,
             StartWithWindows = true,
         };
 
@@ -45,6 +47,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(expected.DockOffsetRatio, actual.DockOffsetRatio);
         Assert.AreEqual(expected.ThemeMode, actual.ThemeMode);
         Assert.AreEqual(expected.DensityMode, actual.DensityMode);
+        Assert.AreEqual(expected.LanguageMode, actual.LanguageMode);
         Assert.AreEqual(expected.StartWithWindows, actual.StartWithWindows);
     }
 
@@ -61,6 +64,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
+        Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
     }
 
@@ -76,6 +80,7 @@ public sealed class SettingsStoreTests
               "dockOffsetRatio": 0.25,
               "themeMode": "dark",
               "densityMode": "compact",
+              "languageMode": "klingon",
               "startWithWindows": true
             }
             """);
@@ -87,6 +92,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
+        Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
     }
 }

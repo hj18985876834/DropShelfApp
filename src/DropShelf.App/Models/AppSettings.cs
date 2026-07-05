@@ -10,6 +10,8 @@ public sealed class AppSettings
 
     public DensityMode DensityMode { get; init; } = DensityMode.Compact;
 
+    public LanguageMode LanguageMode { get; init; } = LanguageMode.Chinese;
+
     public bool StartWithWindows { get; init; }
 
     public static AppSettings CreateDefault()

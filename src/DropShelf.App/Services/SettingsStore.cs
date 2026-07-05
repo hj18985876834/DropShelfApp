@@ -64,6 +64,7 @@ public class SettingsStore
     {
         return Enum.IsDefined(settings.DockEdge)
             && Enum.IsDefined(settings.ThemeMode)
-            && Enum.IsDefined(settings.DensityMode);
+            && Enum.IsDefined(settings.DensityMode)
+            && Enum.IsDefined(settings.LanguageMode);
     }
 }

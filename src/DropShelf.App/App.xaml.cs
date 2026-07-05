@@ -1,7 +1,9 @@
 ﻿using System.IO;
 using System.Threading;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Threading;
+using DropShelf.App.Interop;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
@@ -12,8 +14,10 @@ namespace DropShelf.App;
 public partial class App : System.Windows.Application
 {
     private const string SingleInstanceMutexName = "DropShelf.AppShell";
+    private const string ShowExistingMessageName = "DropShelf.AppShell.ShowExisting";
     private static readonly TimeSpan HoverCollapseDelay = TimeSpan.FromMilliseconds(220);
 
+    private readonly int _showExistingMessage = NativeMethods.RegisterWindowMessage(ShowExistingMessageName);
     private readonly object _shelfSaveGate = new();
     private readonly SemaphoreSlim _shelfSaveSemaphore = new(1, 1);
     private Mutex? _singleInstanceMutex;
@@ -24,6 +28,7 @@ public partial class App : System.Windows.Application
     private AppSettings _settings = AppSettings.CreateDefault();
     private SettingsStore? _settingsStore;
     private ShelfStore? _shelfStore;
+    private StartupLogService? _startupLogService;
     private StartupService? _startupService;
     private ThemeService? _themeService;
     private TrayIconService? _trayIconService;
@@ -39,6 +44,7 @@ public partial class App : System.Windows.Application
         _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out var ownsMutex);
         if (!ownsMutex)
         {
+            NativeMethods.PostMessage(NativeMethods.HwndBroadcast, _showExistingMessage, 0, 0);
             Shutdown();
             return;
         }
@@ -50,6 +56,19 @@ public partial class App : System.Windows.Application
         _hoverCollapseTimer.Tick += (_, _) => CollapseHoverShelfIfPointerOutside();
 
         var appDataRoot = new AppDataPathService().GetAppDataRoot();
+        _startupLogService = new StartupLogService(appDataRoot);
+        _startupLogService.Write("Startup begin.");
+        DispatcherUnhandledException += (_, args) =>
+        {
+            _startupLogService?.WriteException(args.Exception, "Dispatcher unhandled exception");
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception exception)
+            {
+                _startupLogService?.WriteException(exception, "Unhandled exception");
+            }
+        };
         _settingsStore = new SettingsStore(appDataRoot);
         _shelfStore = new ShelfStore(appDataRoot);
         _startupService = new StartupService();
@@ -62,6 +81,7 @@ public partial class App : System.Windows.Application
             DockOffsetRatio = _settings.DockOffsetRatio,
             ThemeMode = _settings.ThemeMode,
             DensityMode = _settings.DensityMode,
+            LanguageMode = _settings.LanguageMode,
             StartWithWindows = _startupService.IsEnabled(),
         };
         _themeService.Apply(this, _settings);
@@ -79,6 +99,7 @@ public partial class App : System.Windows.Application
             fileActionService,
             clipboardService,
             imageStore,
+            ConfirmClearAll,
             _settings.DensityMode,
             _settings.ThemeMode);
         _shelfViewModel.PropertyChanged += (_, args) =>
@@ -120,13 +141,25 @@ public partial class App : System.Windows.Application
             OnShellPointerLeft);
         _shelfWindow.AttachHandleWindow(_handleWindow);
         _shelfWindow.ApplySettings(_settings);
-        _handleWindow.Show();
+        try
+        {
+            _handleWindow.Show();
+            var source = HwndSource.FromHwnd(new WindowInteropHelper(_handleWindow).Handle);
+            source?.AddHook(WndProc);
+            _startupLogService.Write($"Handle shown at Left={_handleWindow.Left}, Top={_handleWindow.Top}, Width={_handleWindow.Width}, Height={_handleWindow.Height}.");
+        }
+        catch (Exception ex)
+        {
+            _startupLogService.WriteException(ex, "Handle show failed");
+            throw;
+        }
 
         _trayIconService = new TrayIconService(
             ShowShelfExplicitly,
             HideShelfExplicitly,
             OpenSettingsWindow,
             ShutdownApplication);
+        _startupLogService.Write("Startup complete.");
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -139,6 +172,7 @@ public partial class App : System.Windows.Application
             _settingsStore.SaveAsync(_settings).GetAwaiter().GetResult();
         }
 
+        _startupLogService?.Write("Exit.");
         DisposeTrayIcon();
         _singleInstanceMutex?.Dispose();
         _shelfSaveSemaphore.Dispose();
@@ -267,6 +301,21 @@ public partial class App : System.Windows.Application
         Dispatcher.InvokeShutdown();
     }
 
+    private bool ConfirmClearAll(int itemCount)
+    {
+        var message = itemCount == 1
+            ? "确定要清空当前 1 个暂存项吗？原始文件不会被删除。"
+            : $"确定要清空当前 {itemCount} 个暂存项吗？原始文件不会被删除。";
+        var result = System.Windows.MessageBox.Show(
+            message,
+            "清空 DropShelf",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.No);
+
+        return result == System.Windows.MessageBoxResult.Yes;
+    }
+
     private void ApplySettings(AppSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -284,6 +333,7 @@ public partial class App : System.Windows.Application
             DockOffsetRatio = placement.DockOffsetRatio,
             ThemeMode = _settings.ThemeMode,
             DensityMode = _settings.DensityMode,
+            LanguageMode = _settings.LanguageMode,
             StartWithWindows = _settings.StartWithWindows,
         };
         _shelfWindow?.ApplySettings(_settings);
@@ -315,6 +365,63 @@ public partial class App : System.Windows.Application
         {
             _shelfViewModel.IsShelfVisible = true;
         }
+    }
+
+    private void ShowShelfFromSecondLaunch()
+    {
+        _startupLogService?.Write("Second launch requested show.");
+        ShowShelfExplicitly();
+        BringWindowForward(_shelfWindow);
+        BringWindowForward(_handleWindow);
+    }
+
+    private static void BringWindowForward(Window? window)
+    {
+        if (window is null)
+        {
+            return;
+        }
+
+        if (!window.IsVisible)
+        {
+            window.Show();
+        }
+
+        var handle = new WindowInteropHelper(window).Handle;
+        if (handle == 0)
+        {
+            return;
+        }
+
+        NativeMethods.ShowWindow(handle, NativeMethods.SwShow);
+        NativeMethods.SetWindowPos(
+            handle,
+            NativeMethods.HwndTopMost,
+            0,
+            0,
+            0,
+            0,
+            NativeMethods.SwpNoMove | NativeMethods.SwpNoSize | NativeMethods.SwpShowWindow);
+        NativeMethods.SetWindowPos(
+            handle,
+            NativeMethods.HwndNoTopMost,
+            0,
+            0,
+            0,
+            0,
+            NativeMethods.SwpNoMove | NativeMethods.SwpNoSize | NativeMethods.SwpShowWindow);
+        NativeMethods.SetForegroundWindow(handle);
+    }
+
+    private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == _showExistingMessage)
+        {
+            ShowShelfFromSecondLaunch();
+            handled = true;
+        }
+
+        return 0;
     }
 
     private void HideShelfExplicitly()

@@ -9,6 +9,41 @@ namespace DropShelf.Tests;
 public sealed class SettingsViewModelTests
 {
     [TestMethod]
+    public void AboutProperties_ExposeApplicationInformation()
+    {
+        var viewModel = new SettingsViewModel(AppSettings.CreateDefault());
+
+        Assert.AreEqual("DropShelf", viewModel.AppName);
+        Assert.AreEqual(
+            "这是由江江学长开发的一款运行于 Windows 本地桌面的临时收纳栏工具，可存放文件、文件夹、文本、链接与图片。",
+            viewModel.AppDescription);
+        Assert.AreEqual(LanguageMode.Chinese, viewModel.LanguageMode);
+        Assert.AreEqual("DropShelf 设置", viewModel.WindowTitle);
+        Assert.AreEqual("语言", viewModel.LanguageLabel);
+        Assert.AreEqual("英文", viewModel.GetLanguageModeDisplayName(LanguageMode.English));
+        Assert.IsTrue(viewModel.UsageGuide.Contains("拖放", StringComparison.Ordinal));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(viewModel.Version));
+        Assert.IsFalse(viewModel.Version.Contains('+', StringComparison.Ordinal));
+        Assert.AreEqual("江江学长", viewModel.Developer);
+        Assert.AreEqual("2748432469@qq.com", viewModel.Contact);
+    }
+
+    [TestMethod]
+    public void LanguageMode_UpdatesDisplayedSettingsText()
+    {
+        var viewModel = new SettingsViewModel(AppSettings.CreateDefault())
+        {
+            LanguageMode = LanguageMode.English,
+        };
+
+        Assert.AreEqual("DropShelf Settings", viewModel.WindowTitle);
+        Assert.AreEqual("Language", viewModel.LanguageLabel);
+        Assert.AreEqual("Chinese", viewModel.GetLanguageModeDisplayName(LanguageMode.Chinese));
+        Assert.IsTrue(viewModel.AppDescription.Contains("local Windows desktop shelf", StringComparison.Ordinal));
+        Assert.AreEqual("Jiangjiang Xuezhang", viewModel.Developer);
+    }
+
+    [TestMethod]
     public async Task ApplyCommand_SavesAndAppliesSettings()
     {
         using var tempDirectory = new TempDirectory();
@@ -29,10 +64,34 @@ public sealed class SettingsViewModelTests
         var saved = await store.LoadAsync();
         Assert.AreEqual(DockEdge.Right, saved.DockEdge);
         Assert.AreEqual(0.5, saved.DockOffsetRatio);
+        Assert.AreEqual(LanguageMode.Chinese, saved.LanguageMode);
         Assert.AreEqual(DockEdge.Right, applied?.DockEdge);
         Assert.AreEqual(0.5, applied?.DockOffsetRatio);
+        Assert.AreEqual(LanguageMode.Chinese, applied?.LanguageMode);
         Assert.IsTrue(viewModel.HasStatus);
         Assert.IsFalse(viewModel.IsStatusError);
+    }
+
+    [TestMethod]
+    public async Task ApplyCommand_SavesLanguageMode()
+    {
+        using var tempDirectory = new TempDirectory();
+        var store = new SettingsStore(tempDirectory.Path);
+        AppSettings? applied = null;
+        var viewModel = new SettingsViewModel(
+            AppSettings.CreateDefault(),
+            store,
+            null,
+            settings => applied = settings);
+
+        viewModel.LanguageMode = LanguageMode.English;
+
+        await ExecuteApplyAsync(viewModel);
+
+        var saved = await store.LoadAsync();
+        Assert.AreEqual(LanguageMode.English, saved.LanguageMode);
+        Assert.AreEqual(LanguageMode.English, applied?.LanguageMode);
+        Assert.AreEqual("Settings saved.", viewModel.StatusMessage);
     }
 
     [TestMethod]

@@ -14,6 +14,7 @@ public sealed class AppSettingsTests
         Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
+        Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
     }
 }

@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
@@ -11,8 +12,6 @@ using WpfDragDrop = System.Windows.DragDrop;
 using WpfDragDropEffects = System.Windows.DragDropEffects;
 using WpfDragEventArgs = System.Windows.DragEventArgs;
 using WpfClipboard = System.Windows.Clipboard;
-using WpfButton = System.Windows.Controls.Button;
-using WpfGrid = System.Windows.Controls.Grid;
 using WpfMouseButtonState = System.Windows.Input.MouseButtonState;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
@@ -22,6 +21,7 @@ namespace DropShelf.App.Views;
 public partial class ShelfWindow : Window
 {
     private static readonly Duration ShellAnimationDuration = new(TimeSpan.FromMilliseconds(140));
+    private static readonly TimeSpan DropFeedbackResetDelay = TimeSpan.FromSeconds(1.6);
 
     private readonly DragDropService _dragDropService;
     private readonly WindowDockService _dockService;
@@ -29,10 +29,12 @@ public partial class ShelfWindow : Window
     private readonly ShelfViewModel _viewModel;
     private readonly Action? _pointerEntered;
     private readonly Action? _pointerLeft;
+    private readonly DispatcherTimer _dropFeedbackResetTimer;
     private Window? _handleWindow;
     private bool _allowClose;
     private DockEdge _dockEdge;
     private WpfPoint? _dragStartPoint;
+    private bool _isCardContextMenuOpen;
     private bool _isPanelVisible;
     private bool _wasExpandedByDrag;
 
@@ -56,6 +58,9 @@ public partial class ShelfWindow : Window
 
         InitializeComponent();
         DataContext = _viewModel;
+
+        _dropFeedbackResetTimer = new DispatcherTimer { Interval = DropFeedbackResetDelay };
+        _dropFeedbackResetTimer.Tick += (_, _) => ClearDropFeedback();
 
         _viewModel.PropertyChanged += (_, args) =>
         {
@@ -267,6 +272,11 @@ public partial class ShelfWindow : Window
 
     private void ShelfHost_OnMouseLeave(object sender, WpfMouseEventArgs e)
     {
+        if (_isCardContextMenuOpen)
+        {
+            return;
+        }
+
         _pointerLeft?.Invoke();
     }
 
@@ -311,7 +321,14 @@ public partial class ShelfWindow : Window
 
         _wasExpandedByDrag = false;
         _viewModel.IsDragOverAccepted = false;
-        _viewModel.IsDragOverUnsupported = false;
+        if (_viewModel.IsDragOverUnsupported)
+        {
+            ScheduleDropFeedbackReset();
+        }
+        else
+        {
+            _viewModel.IsDragOverUnsupported = false;
+        }
         e.Handled = true;
     }
 
@@ -328,6 +345,19 @@ public partial class ShelfWindow : Window
         e.Handled = true;
     }
 
+    private void ScheduleDropFeedbackReset()
+    {
+        _dropFeedbackResetTimer.Stop();
+        _dropFeedbackResetTimer.Start();
+    }
+
+    private void ClearDropFeedback()
+    {
+        _dropFeedbackResetTimer.Stop();
+        _viewModel.IsDragOverAccepted = false;
+        _viewModel.IsDragOverUnsupported = false;
+    }
+
     private void PositionPanel()
     {
         if (_handleWindow is not null)
@@ -342,6 +372,7 @@ public partial class ShelfWindow : Window
         if (dataObject is null)
         {
             _viewModel.IsDragOverUnsupported = true;
+            ScheduleDropFeedbackReset();
             return;
         }
 
@@ -351,6 +382,7 @@ public partial class ShelfWindow : Window
             if (items.Count == 0)
             {
                 _viewModel.IsDragOverUnsupported = true;
+                ScheduleDropFeedbackReset();
                 return;
             }
 
@@ -361,18 +393,12 @@ public partial class ShelfWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
         {
             _viewModel.IsDragOverUnsupported = true;
+            ScheduleDropFeedbackReset();
         }
     }
 
     private void ShelfItem_OnPreviewMouseMove(object sender, WpfMouseEventArgs e)
     {
-        if (IsFromCardActionButton(e.OriginalSource))
-        {
-            _dragStartPoint = null;
-            ReleaseMouseCapture(sender);
-            return;
-        }
-
         if (e.LeftButton != WpfMouseButtonState.Pressed ||
             sender is not FrameworkElement { DataContext: ShelfItemViewModel itemViewModel })
         {
@@ -415,6 +441,18 @@ public partial class ShelfWindow : Window
 
     private void ShelfItem_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2 &&
+            sender is FrameworkElement { DataContext: ShelfItemViewModel itemViewModel } &&
+            itemViewModel.OpenCommand.CanExecute(null))
+        {
+            _viewModel.SelectedItem = itemViewModel;
+            itemViewModel.OpenCommand.Execute(null);
+            _dragStartPoint = null;
+            ReleaseMouseCapture(sender);
+            e.Handled = true;
+            return;
+        }
+
         _dragStartPoint = e.GetPosition(this);
         if (sender is UIElement element)
         {
@@ -428,6 +466,18 @@ public partial class ShelfWindow : Window
         ReleaseMouseCapture(sender);
     }
 
+    private void CardContextMenu_OnOpened(object sender, RoutedEventArgs e)
+    {
+        _isCardContextMenuOpen = true;
+        _pointerEntered?.Invoke();
+    }
+
+    private void CardContextMenu_OnClosed(object sender, RoutedEventArgs e)
+    {
+        _isCardContextMenuOpen = false;
+        _pointerLeft?.Invoke();
+    }
+
     private static void ReleaseMouseCapture(object sender)
     {
         if (sender is UIElement element && element.IsMouseCaptured)
@@ -436,27 +486,4 @@ public partial class ShelfWindow : Window
         }
     }
 
-    private void CardActionButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        _dragStartPoint = null;
-        e.Handled = true;
-    }
-
-    private static bool IsFromCardActionButton(object originalSource)
-    {
-        var current = originalSource as DependencyObject;
-        while (current is not null)
-        {
-            if (current is WpfButton { Command: not null })
-            {
-                return true;
-            }
-
-            current = current is Visual or Visual3D
-                ? VisualTreeHelper.GetParent(current)
-                : LogicalTreeHelper.GetParent(current);
-        }
-
-        return false;
-    }
 }

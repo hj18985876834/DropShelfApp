@@ -115,6 +115,7 @@
 * [`research/desktop-drop-shelf-deep-dive.md`](research/desktop-drop-shelf-deep-dive.md) — 桌面暂存架竞品、MVP、技术栈、UX 风险和差异化路线。
 * [`research/desktop-drop-shelf-ux-style.md`](research/desktop-drop-shelf-ux-style.md) — 桌面暂存架的 Windows/Fluent 风格、交互手感、动效和状态设计建议。
 * [`research/desktop-drop-shelf-technical-route.md`](research/desktop-drop-shelf-technical-route.md) — WPF/.NET 技术路线、项目结构、模块边界、存储和打包建议。
+* [`research/visual-motion-optimization.md`](research/visual-motion-optimization.md) — DropShelf 视觉、动效、拖放反馈和卡片体验的下一阶段优化建议。
 
 ## Research Notes
 

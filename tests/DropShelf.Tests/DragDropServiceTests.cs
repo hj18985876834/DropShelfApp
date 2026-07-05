@@ -4,6 +4,11 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
+using DrawingBitmap = System.Drawing.Bitmap;
+using DrawingBrushes = System.Drawing.Brushes;
+using DrawingGraphics = System.Drawing.Graphics;
+using DrawingPixelFormat = System.Drawing.Imaging.PixelFormat;
+using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace DropShelf.Tests;
 
@@ -130,6 +135,103 @@ public sealed class DragDropServiceTests
     }
 
     [TestMethod]
+    public async Task CreateItemsAsync_CreatesImageItemFromDrawingBitmapData()
+    {
+        using var tempDirectory = new TempDirectory();
+        using var drawingBitmap = CreateDrawingBitmap(24, 24);
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData(DataFormats.Bitmap, drawingBitmap, autoConvert: false);
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
+        AssertPngCanDecode(items[0].ImagePath);
+        AssertPngCanDecode(items[0].ThumbnailPath);
+    }
+
+    [TestMethod]
+    public async Task CreateItemsAsync_CreatesImageItemFromPngClipboardBytes()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData("PNG", CreatePngBytes(CreateBitmap(24, 24)), autoConvert: false);
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
+        AssertPngCanDecode(items[0].ImagePath);
+        AssertPngCanDecode(items[0].ThumbnailPath);
+    }
+
+    [TestMethod]
+    public async Task CreateItemsAsync_CreatesImageItemFromDibClipboardBytes()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData(DataFormats.Dib, CreateDibBytes(24, 24), autoConvert: false);
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
+        AssertPngCanDecode(items[0].ImagePath);
+        AssertPngCanDecode(items[0].ThumbnailPath);
+    }
+
+    [TestMethod]
+    public async Task CreateItemsAsync_CreatesImageItemFromDibV5ClipboardBytes()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData("DeviceIndependentBitmapV5", CreateDibBytes(24, 24), autoConvert: false);
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
+        AssertPngCanDecode(items[0].ImagePath);
+        AssertPngCanDecode(items[0].ThumbnailPath);
+    }
+
+    [TestMethod]
+    public async Task CreateItemsAsync_TreatsAllZeroDibAlphaAsOpaque()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var dataObject = new DataObject();
+        dataObject.SetData(DataFormats.Dib, CreateDibBytes(24, 24, alpha: 0x00), autoConvert: false);
+        var service = new DragDropService();
+
+        var items = await service.CreateItemsAsync(dataObject, new ImageStore(appDataRoot));
+
+        Assert.HasCount(1, items);
+        var pixel = ReadFirstPixel(items[0].ImagePath);
+        Assert.AreEqual(0x34, pixel.Blue);
+        Assert.AreEqual(0x86, pixel.Green);
+        Assert.AreEqual(0xC5, pixel.Red);
+        Assert.AreEqual(0xFF, pixel.Alpha);
+    }
+
+    [TestMethod]
+    public void CanCreateItems_AcceptsDibV5FormatWithoutReadingPayload()
+    {
+        var dataObject = new FormatOnlyDataObject("DeviceIndependentBitmapV5");
+        var service = new DragDropService();
+
+        Assert.IsTrue(service.CanCreateItems(dataObject));
+    }
+
+    [TestMethod]
     public void CanCreateItems_ChecksFormatsWithoutReadingPayload()
     {
         var dataObject = new FormatOnlyDataObject(DataFormats.UnicodeText);
@@ -230,6 +332,28 @@ public sealed class DragDropServiceTests
     }
 
     [TestMethod]
+    public void CreateDragOutPayload_ReturnsCopyFileDropForExistingImageItem()
+    {
+        using var tempDirectory = new TempDirectory();
+        var imagePath = Path.Combine(tempDirectory.Path, "capture.png");
+        File.WriteAllBytes(imagePath, [0x01, 0x02, 0x03]);
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Image,
+            DisplayName = "capture",
+            ImagePath = imagePath,
+        });
+
+        Assert.IsNotNull(payload);
+        Assert.AreEqual(DragDropEffects.Copy, payload.AllowedEffects);
+        Assert.AreEqual(3, payload.TotalBytes);
+        CollectionAssert.AreEqual(new[] { imagePath }, payload.Paths.ToArray());
+        Assert.IsTrue(payload.CreateDataObject().GetDataPresent(DataFormats.FileDrop));
+    }
+
+    [TestMethod]
     public void TryCreateDragOutPayload_ReturnsMessageForOversizedFile()
     {
         using var tempDirectory = new TempDirectory();
@@ -324,6 +448,24 @@ public sealed class DragDropServiceTests
     }
 
     [TestMethod]
+    public void TryCreateDragOutPayload_ReturnsMessageForMissingImagePath()
+    {
+        var service = new DragDropService();
+
+        var result = service.TryCreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Image,
+            DisplayName = "missing image",
+            ImagePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.png"),
+        });
+
+        Assert.IsFalse(result.CanStartDrag);
+        Assert.IsFalse(result.CanDrag);
+        Assert.IsNull(result.Payload);
+        Assert.AreEqual("Source is missing.", result.Message);
+    }
+
+    [TestMethod]
     public void CreateDragOutPayload_ReturnsNullForMissingSource()
     {
         var service = new DragDropService();
@@ -376,6 +518,90 @@ public sealed class DragDropServiceTests
             stride);
         bitmap.Freeze();
         return bitmap;
+    }
+
+    private static DrawingBitmap CreateDrawingBitmap(int width, int height)
+    {
+        var bitmap = new DrawingBitmap(width, height, DrawingPixelFormat.Format32bppPArgb);
+        using var graphics = DrawingGraphics.FromImage(bitmap);
+        graphics.FillRectangle(DrawingBrushes.CornflowerBlue, new DrawingRectangle(0, 0, width, height));
+        return bitmap;
+    }
+
+    private static byte[] CreatePngBytes(BitmapSource bitmap)
+    {
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateDibBytes(int width, int height, byte alpha = 0xFF)
+    {
+        const int headerSize = 40;
+        const short planes = 1;
+        const short bitCount = 32;
+        var stride = width * 4;
+        var imageSize = stride * height;
+        var bytes = new byte[headerSize + imageSize];
+
+        WriteInt32LittleEndian(bytes, 0, headerSize);
+        WriteInt32LittleEndian(bytes, 4, width);
+        WriteInt32LittleEndian(bytes, 8, height);
+        WriteInt16LittleEndian(bytes, 12, planes);
+        WriteInt16LittleEndian(bytes, 14, bitCount);
+        WriteInt32LittleEndian(bytes, 20, imageSize);
+
+        var pixelStart = headerSize;
+        for (var row = 0; row < height; row++)
+        {
+            for (var column = 0; column < width; column++)
+            {
+                var index = pixelStart + (row * stride) + (column * 4);
+                bytes[index] = 0x34;
+                bytes[index + 1] = 0x86;
+                bytes[index + 2] = 0xC5;
+                bytes[index + 3] = alpha;
+            }
+        }
+
+        return bytes;
+    }
+
+    private static (byte Blue, byte Green, byte Red, byte Alpha) ReadFirstPixel(string? path)
+    {
+        Assert.IsFalse(string.IsNullOrWhiteSpace(path));
+
+        using var stream = File.OpenRead(path);
+        var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        var frame = new FormatConvertedBitmap(decoder.Frames[0], PixelFormats.Bgra32, null, 0);
+        var pixels = new byte[4];
+        frame.CopyPixels(new Int32Rect(0, 0, 1, 1), pixels, 4, 0);
+        return (pixels[0], pixels[1], pixels[2], pixels[3]);
+    }
+
+    private static void AssertPngCanDecode(string? path)
+    {
+        Assert.IsFalse(string.IsNullOrWhiteSpace(path));
+        Assert.IsTrue(File.Exists(path));
+
+        using var stream = File.OpenRead(path);
+        var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        Assert.HasCount(1, decoder.Frames);
+    }
+
+    private static void WriteInt16LittleEndian(byte[] bytes, int startIndex, short value)
+    {
+        var valueBytes = BitConverter.GetBytes(value);
+        Buffer.BlockCopy(valueBytes, 0, bytes, startIndex, valueBytes.Length);
+    }
+
+    private static void WriteInt32LittleEndian(byte[] bytes, int startIndex, int value)
+    {
+        var valueBytes = BitConverter.GetBytes(value);
+        Buffer.BlockCopy(valueBytes, 0, bytes, startIndex, valueBytes.Length);
     }
 
     private sealed class FormatOnlyDataObject : IDataObject

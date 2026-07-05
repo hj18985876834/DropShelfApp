@@ -35,8 +35,9 @@ public sealed class ImageStore
         var originalPath = Path.Combine(OriginalsDirectory, $"{id:N}.png");
         var thumbnailPath = Path.Combine(ThumbnailsDirectory, $"{id:N}.png");
 
-        SavePng(image, originalPath);
-        SavePng(CreateThumbnail(image), thumbnailPath);
+        var normalizedImage = NormalizeForPng(image);
+        SavePng(normalizedImage, originalPath);
+        SavePng(CreateThumbnail(normalizedImage), thumbnailPath);
 
         return new ShelfItem
         {
@@ -86,6 +87,28 @@ public sealed class ImageStore
 
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+    private static BitmapSource NormalizeForPng(BitmapSource source)
+    {
+        var normalized = source.Format == PixelFormats.Bgra32 || source.Format == PixelFormats.Pbgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+
+        if (normalized.IsFrozen)
+        {
+            return normalized;
+        }
+
+        if (normalized.CanFreeze)
+        {
+            normalized.Freeze();
+            return normalized;
+        }
+
+        var copy = new WriteableBitmap(normalized);
+        copy.Freeze();
+        return copy;
     }
 
     private static BitmapSource GetBackgroundSafeImage(BitmapSource source)

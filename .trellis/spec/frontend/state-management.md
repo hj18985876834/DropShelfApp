@@ -246,12 +246,14 @@ cleared, or persisted.
 * `DisplayName` defaults to the file or folder name.
 * File/folder items never copy bytes into app data.
 * Drag-out uses standard `DataFormats.FileDrop` with `DragDropEffects.Copy`.
+  File/folder items drag out `SourcePath`; app-owned image items drag out
+  `ImagePath`.
 * Every drag started from DropShelf carries `InternalDragFormat`.
 * Drop-in creation must ignore any data object carrying `InternalDragFormat`,
   even if it also contains `FileDrop`, so dragging a shelf card back into the
   app cannot duplicate records.
-* Drag-out is allowed only when the source still exists and its size can be
-  read.
+* Drag-out is allowed only when the source path or image path still exists and
+  its size can be read.
 * V1 drag-out refuses files or recursively measured folders larger than
   `DragDropService.MaxDragOutBytes` at the point where the drag threshold is
   crossed. Show the result message on the card and do not call WPF
@@ -270,6 +272,8 @@ cleared, or persisted.
 * Duplicate existing path -> allowed in V1.
 * Path exists at display time -> open/reveal commands can execute.
 * Path exists and size <= `MaxDragOutBytes` -> drag-out payload can be created.
+* Image item has existing `imagePath` and size <= `MaxDragOutBytes` -> drag-out
+  payload uses that cached PNG path.
 * Path exists but size > `MaxDragOutBytes` -> no external drag/drop starts; card
   status says the item is too large.
 * Path size cannot be read -> no external drag/drop starts; card status says
@@ -303,9 +307,12 @@ Use temporary directories/files.
 * Assert missing source path yields missing state and disables open/reveal.
 * Assert copy path sends the original `SourcePath` to the clipboard boundary.
 * Assert drag-out payload reports `Copy` for valid file/folder paths.
+* Assert drag-out payload reports `Copy` and `FileDrop` for valid app-owned
+  image paths.
 * Assert oversized file/folder returns an invalid result with a user-facing
   status message.
-* Assert missing or inaccessible source returns an invalid drag-out result.
+* Assert missing or inaccessible source/image path returns an invalid drag-out
+  result.
 * Assert internal drag data is ignored by drop-in creation.
 
 ### 7. Wrong vs Correct
@@ -354,6 +361,10 @@ drag/drop and turns it into a persisted shelf item.
   path for clipboard/drag bitmap input.
 * `DragDropService.CreateItemsAsync(IDataObject, ImageStore, CancellationToken)`
   creates shelf records and moves pathless image encoding off the dispatcher.
+* `DragDropService.CanCreateItems(IDataObject)` checks native formats only for
+  `FileDrop`, `Bitmap`, `DeviceIndependentBitmap`,
+  `DeviceIndependentBitmapV5` / `Format17`, `UnicodeText`, `Text`, and known
+  encoded image formats such as `PNG`, `JFIF`, and `TIFF`.
 * `ImageStore.DeleteImageFiles(ShelfItem)` removes app-owned image files for an
   image shelf item.
 * `ImagePathConverter` loads thumbnail paths with `BitmapCacheOption.OnLoad`
@@ -365,6 +376,30 @@ drag/drop and turns it into a persisted shelf item.
 * Thumbnails are stored under `%LOCALAPPDATA%/DropShelf/images/thumbs/`.
 * Image shelf records store `imagePath` and `thumbnailPath`; file/folder shelf
   records continue to store only `sourcePath`.
+* Clipboard images may arrive as WPF `BitmapSource`, GDI
+  `System.Drawing.Bitmap`, `DeviceIndependentBitmap` / `CF_DIB` bytes,
+  `DeviceIndependentBitmapV5` / `CF_DIBV5` bytes, or encoded PNG/JPEG / TIFF
+  bytes. DropShelf normalizes all accepted pathless image inputs into app-owned
+  PNG files.
+* DIB clipboard bytes do not include a BMP file header. To decode them through
+  WPF, prepend a `BITMAPFILEHEADER` and compute `bfOffBits` from the DIB header,
+  color table, and `BI_BITFIELDS` masks before passing the bytes to a
+  `BmpBitmapDecoder`.
+* Any bitmap decoded from clipboard/drop data must be copied into a
+  `WriteableBitmap` and frozen before background PNG encoding. Do not rely on a
+  decoder frame merely being frozen; it can still carry dispatcher-affine
+  decoder metadata and fail when encoded on the background thread.
+* Clipboard image extraction order is: encoded image formats (`PNG`, `JFIF`,
+  `TIFF`), GDI `System.Drawing.Bitmap`, DIB/DIBV5 bytes with manual pixel
+  conversion, then WPF `Bitmap` fallback. Do not put WPF auto-conversion before
+  native encoded/DIB handling because it can be slower and can produce incorrect
+  alpha.
+* For uncompressed 32bpp DIB/DIBV5 clipboard bytes, if every alpha byte is zero
+  but RGB data is present, treat the pixels as opaque (`A = 255`). Several
+  screenshot tools place RGB content in 32bpp DIB while leaving alpha unset; if
+  saved as-is, the PNG can appear transparent or black when opened.
+* Saved originals and thumbnails are normalized to a stable 32-bit WPF pixel
+  format before PNG encoding.
 * Explorer image file drops remain file references. Do not duplicate an image
   file just because its extension is an image type.
 * Image file references may still show a card thumbnail by binding preview UI to
@@ -382,10 +417,17 @@ drag/drop and turns it into a persisted shelf item.
 * Clipboard/drop data has bitmap format without file-drop format -> save an
   app-owned original and thumbnail in the background, then add the finished
   image shelf record.
+* Clipboard/drop data has PNG/JFIF/TIFF bytes, DIB bytes, or DIBV5 bytes without
+  file-drop format -> decode to a frozen `BitmapSource`, normalize, then save an
+  app-owned original and thumbnail.
+* 32bpp DIB/DIBV5 has all-zero alpha -> preserve RGB and force opaque alpha
+  before saving.
 * Explorer file-drop data points to a supported image file -> keep
   `Type = File`, keep `SourcePath`, and expose `ImagePreviewPath = SourcePath`.
 * Missing image or thumbnail on reload -> keep the card and show a missing
   state; do not crash startup.
+* Corrupt or unsupported image files in preview bindings -> converter returns
+  `null`; the app must not crash while rendering a card.
 * Delete image item -> delete app-owned original and thumbnail if present.
 * Delete file/folder item -> delete shelf record only; never delete source.
 
@@ -399,6 +441,10 @@ drag/drop and turns it into a persisted shelf item.
 * Good: `CanCreateItems` only checks native formats, so Windows delayed
   clipboard/drag rendering is triggered once at paste/drop time instead of on
   every `DragOver`.
+* Good: `CreateItemsAsync` accepts WPF bitmap, GDI bitmap, encoded image bytes,
+  and DIB bytes, then persists a normal PNG original plus PNG thumbnail.
+* Good: a screenshot copied from another app with 32bpp DIB and alpha bytes all
+  zero opens as the visible screenshot content, not a black/transparent PNG.
 * Base: image cache file was manually deleted; app still loads the record and
   shows a missing/corrupt state.
 * Bad: using `GetData` in `DragOver`, `CanCreateItems`, or other preview paths;
@@ -406,6 +452,12 @@ drag/drop and turns it into a persisted shelf item.
   data before the user drops anything.
 * Bad: calling `ImageStore.SaveImage` directly from a paste or drop event blocks
   the dispatcher while PNG encoding and disk writes complete.
+* Bad: passing a `BitmapFrame` returned by `BitmapDecoder` directly to
+  background encoding. It may throw a cross-thread dispatcher access exception
+  when WPF inspects decoder metadata.
+* Bad: preserving all-zero alpha from a 32bpp screenshot DIB. This saves RGB
+  content as fully transparent and can look like a black image in default
+  viewers.
 * Bad: binding an image path directly in WPF can keep the file locked and make
   remove/clear fail to delete the app-owned thumbnail.
 
@@ -415,8 +467,15 @@ drag/drop and turns it into a persisted shelf item.
   data.
 * Assert `ImageStore.SaveImageAsync` and `DragDropService.CreateItemsAsync`
   create image records and cached files for bitmap input.
+* Assert `DragDropService.CreateItemsAsync` creates decodable PNG originals and
+  thumbnails for GDI bitmap data, encoded PNG clipboard bytes, DIB clipboard
+  bytes, and DIBV5 clipboard bytes.
+* Assert non-32-bit bitmap input is normalized to decodable PNG output.
+* Assert 32bpp DIB input with all-zero alpha saves RGB content with opaque
+  alpha.
 * Assert `DragDropService.CanCreateItems` accepts supported formats without
   reading payload data.
+* Assert corrupt image preview files return `null` through `ImagePathConverter`.
 * Assert `ImageStore.DeleteImageFiles` removes existing app-owned files and
   ignores missing files.
 * Assert remove/clear in `ShelfViewModel` deletes app-owned image files but
@@ -443,4 +502,24 @@ This can leave the thumbnail file locked by the WPF image pipeline.
 
 The converter loads with `BitmapCacheOption.OnLoad`, freezes the bitmap, and
 lets image cleanup delete app-owned files later.
+
+#### Wrong
+
+```csharp
+bitmap = decoder.Frames[0];
+return imageStore.SaveImageAsync(bitmap);
+```
+
+Decoder frames can keep thread-affine WPF decoder state even with `OnLoad`.
+
+#### Correct
+
+```csharp
+var copy = new WriteableBitmap(decoder.Frames[0]);
+copy.Freeze();
+return imageStore.SaveImageAsync(copy);
+```
+
+Copy pixels at the clipboard/drop boundary, freeze the copy, and only then move
+PNG encoding to the background.
 * Do not route file/folder remove or clear through `ImageStore.DeleteImageFiles`; that cleanup is only for app-owned image files.

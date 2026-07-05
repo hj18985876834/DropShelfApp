@@ -48,6 +48,19 @@ public sealed class ImageStoreTests
     }
 
     [TestMethod]
+    public void SaveImage_NormalizesNonBgraBitmapToDecodablePng()
+    {
+        using var tempDirectory = new TempDirectory();
+        var store = new ImageStore(tempDirectory.Path);
+        var bitmap = CreateGrayBitmap(32, 32);
+
+        var item = store.SaveImage(bitmap);
+
+        AssertPngCanDecode(item.ImagePath);
+        AssertPngCanDecode(item.ThumbnailPath);
+    }
+
+    [TestMethod]
     public void DeleteImageFiles_RemovesAppOwnedOriginalAndThumbnail()
     {
         using var tempDirectory = new TempDirectory();
@@ -98,5 +111,32 @@ public sealed class ImageStoreTests
             stride);
         bitmap.Freeze();
         return bitmap;
+    }
+
+    private static BitmapSource CreateGrayBitmap(int width, int height)
+    {
+        var stride = width;
+        var pixels = Enumerable.Repeat((byte)0x80, stride * height).ToArray();
+        var bitmap = BitmapSource.Create(
+            width,
+            height,
+            96,
+            96,
+            PixelFormats.Gray8,
+            null,
+            pixels,
+            stride);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private static void AssertPngCanDecode(string? path)
+    {
+        Assert.IsFalse(string.IsNullOrWhiteSpace(path));
+        Assert.IsTrue(File.Exists(path));
+
+        using var stream = File.OpenRead(path);
+        var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        Assert.HasCount(1, decoder.Frames);
     }
 }

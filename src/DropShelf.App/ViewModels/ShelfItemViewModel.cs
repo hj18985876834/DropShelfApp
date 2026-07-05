@@ -81,6 +81,26 @@ public sealed class ShelfItemViewModel : ObservableObject
         _ => "ITEM",
     };
 
+    public string TypeDisplayName => Item.Type switch
+    {
+        ShelfItemType.File => "文件",
+        ShelfItemType.Folder => "文件夹",
+        ShelfItemType.Text => "文本",
+        ShelfItemType.Url => "链接",
+        ShelfItemType.Image => "图片",
+        _ => "项目",
+    };
+
+    public string TypeIcon => Item.Type switch
+    {
+        ShelfItemType.File => "\uE8A5",
+        ShelfItemType.Folder => "\uE8B7",
+        ShelfItemType.Text => "\uE8D2",
+        ShelfItemType.Url => "\uE71B",
+        ShelfItemType.Image => "\uEB9F",
+        _ => "\uE8A5",
+    };
+
     public string PathSummary => GetPathSummary();
 
     public string PreviewText => GetPreviewText();
@@ -152,19 +172,19 @@ public sealed class ShelfItemViewModel : ObservableObject
         var clipboardText = ClipboardText;
         if (string.IsNullOrWhiteSpace(clipboardText))
         {
-            StatusMessage = "No content available to copy.";
+            StatusMessage = "没有可复制的内容。";
             return;
         }
 
         if (!_clipboardService.SetText(clipboardText))
         {
-            StatusMessage = "Could not copy item.";
+            StatusMessage = "复制失败。";
             return;
         }
 
         StatusMessage = string.Equals(clipboardText, SourcePath, StringComparison.Ordinal)
-            ? "Path copied."
-            : "Copied.";
+            ? "路径已复制。"
+            : "已复制。";
     }
 
     public void Open()
@@ -173,19 +193,19 @@ public sealed class ShelfItemViewModel : ObservableObject
         {
             StatusMessage = _fileActionService.OpenUrl(Item.Content ?? string.Empty)
                 ? null
-                : "URL cannot be opened.";
+                : "链接无法打开。";
             return;
         }
 
         if (string.IsNullOrWhiteSpace(ActionPath))
         {
-            StatusMessage = "No path available.";
+            StatusMessage = "没有可用路径。";
             return;
         }
 
         StatusMessage = _fileActionService.Open(ActionPath)
             ? null
-            : "Item is missing or cannot be opened.";
+            : "项目缺失或无法打开。";
         OnPathStateChanged();
     }
 
@@ -193,13 +213,13 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(Item.ImagePath) || !Exists)
         {
-            StatusMessage = "Image is missing.";
+            StatusMessage = "图片缺失。";
             return;
         }
 
         StatusMessage = _clipboardService.SetImageFromPath(Item.ImagePath)
-            ? "Copied."
-            : "Could not copy image.";
+            ? "已复制。"
+            : "图片复制失败。";
         OnPathStateChanged();
     }
 
@@ -207,13 +227,13 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ActionPath))
         {
-            StatusMessage = "No path available.";
+            StatusMessage = "没有可用路径。";
             return;
         }
 
         StatusMessage = _fileActionService.RevealInExplorer(ActionPath)
             ? null
-            : "Item is missing or cannot be revealed.";
+            : "项目缺失或无法定位。";
         OnPathStateChanged();
     }
 
