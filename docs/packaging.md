@@ -69,6 +69,7 @@ The installer is intentionally per-user:
 * It installs to `%LOCALAPPDATA%\Programs\DropShelf`.
 * It creates a Start Menu shortcut.
 * It offers an optional desktop shortcut, unchecked by default.
+* Its setup UI supports English and Simplified Chinese.
 * It does not enable startup with Windows. Startup remains controlled by the app setting backed by the HKCU Run key.
 * It keeps the install directory fixed and does not offer a custom directory page in V1.
 

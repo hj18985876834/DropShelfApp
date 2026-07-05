@@ -1,8 +1,8 @@
 {
   "version": "0.1.0",
   "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe",
-  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-  "sizeBytes": 0,
+  "sha256": "5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055",
+  "sizeBytes": 51089185,
   "releaseDate": "2026-07-05",
   "mandatory": false,
   "releaseNotes": {
