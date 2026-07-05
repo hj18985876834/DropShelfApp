@@ -14,6 +14,7 @@ public sealed class ShelfViewModel : ObservableObject
     private readonly IFileActionService _fileActionService;
     private readonly ImageStore? _imageStore;
     private readonly Func<int, bool>? _confirmClearAll;
+    private readonly LocalizationService _localizationService;
     private readonly DensityMode _densityMode;
     private readonly ThemeMode _themeMode;
     private bool _isDragOverAccepted;
@@ -29,6 +30,7 @@ public sealed class ShelfViewModel : ObservableObject
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
         Func<int, bool>? confirmClearAll = null,
+        LocalizationService? localizationService = null,
         DensityMode densityMode = DensityMode.Compact,
         ThemeMode themeMode = ThemeMode.System)
     {
@@ -37,8 +39,10 @@ public sealed class ShelfViewModel : ObservableObject
         _clipboardService = clipboardService ?? new ClipboardService();
         _imageStore = imageStore;
         _confirmClearAll = confirmClearAll;
+        _localizationService = localizationService ?? new LocalizationService();
         _densityMode = densityMode;
         _themeMode = themeMode;
+        _localizationService.LanguageChanged += OnLanguageChanged;
 
         ShowShelfCommand = new RelayCommand(_ => IsShelfVisible = true);
         HideShelfCommand = new RelayCommand(_ => IsShelfVisible = false);
@@ -73,6 +77,8 @@ public sealed class ShelfViewModel : ObservableObject
             {
                 IsDragOverUnsupported = false;
             }
+
+            OnPropertyChanged(nameof(DropStateText));
         }
     }
 
@@ -85,6 +91,8 @@ public sealed class ShelfViewModel : ObservableObject
             {
                 IsDragOverAccepted = false;
             }
+
+            OnPropertyChanged(nameof(DropStateText));
         }
     }
 
@@ -97,6 +105,34 @@ public sealed class ShelfViewModel : ObservableObject
     public bool HasItems => !IsEmpty;
 
     public int ItemCount => Items.Count;
+
+    public string ItemCountSuffix => _localizationService.Text.ShelfItemCountSuffix;
+
+    public string ClearAllTooltip => _localizationService.Text.ClearAllTooltip;
+
+    public string SettingsTooltip => _localizationService.Text.SettingsTooltip;
+
+    public string CollapseTooltip => _localizationService.Text.CollapseTooltip;
+
+    public string EmptyTitle => _localizationService.Text.EmptyTitle;
+
+    public string EmptyDescription => _localizationService.Text.EmptyDescription;
+
+    public string EmptyFileChip => _localizationService.Text.EmptyFileChip;
+
+    public string EmptyTextChip => _localizationService.Text.EmptyTextChip;
+
+    public string EmptyImageChip => _localizationService.Text.EmptyImageChip;
+
+    public string ReleaseToAddText => _localizationService.Text.ReleaseToAdd;
+
+    public string UnsupportedContentText => _localizationService.Text.UnsupportedContent;
+
+    public string HandleTooltip => _localizationService.Text.HandleTooltip;
+
+    public string DropStateText => IsDragOverUnsupported
+        ? UnsupportedContentText
+        : ReleaseToAddText;
 
     public ShelfItemViewModel? SelectedItem
     {
@@ -188,7 +224,7 @@ public sealed class ShelfViewModel : ObservableObject
 
     private ShelfItemViewModel CreateItemViewModel(ShelfItem item)
     {
-        return new ShelfItemViewModel(item, _fileActionService, _clipboardService, RemoveItem);
+        return new ShelfItemViewModel(item, _fileActionService, _clipboardService, RemoveItem, _localizationService);
     }
 
     private void RemoveItem(ShelfItemViewModel item)
@@ -243,6 +279,28 @@ public sealed class ShelfViewModel : ObservableObject
         }
 
         RaiseSelectedCommandCanExecuteChanged();
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(ItemCountSuffix));
+        OnPropertyChanged(nameof(ClearAllTooltip));
+        OnPropertyChanged(nameof(SettingsTooltip));
+        OnPropertyChanged(nameof(CollapseTooltip));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(EmptyDescription));
+        OnPropertyChanged(nameof(EmptyFileChip));
+        OnPropertyChanged(nameof(EmptyTextChip));
+        OnPropertyChanged(nameof(EmptyImageChip));
+        OnPropertyChanged(nameof(ReleaseToAddText));
+        OnPropertyChanged(nameof(UnsupportedContentText));
+        OnPropertyChanged(nameof(HandleTooltip));
+        OnPropertyChanged(nameof(DropStateText));
+
+        foreach (var item in Items)
+        {
+            item.RefreshLocalizedText();
+        }
     }
 
     private void RaiseSelectedCommandCanExecuteChanged()

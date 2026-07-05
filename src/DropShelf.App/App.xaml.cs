@@ -31,6 +31,7 @@ public partial class App : System.Windows.Application
     private StartupLogService? _startupLogService;
     private StartupService? _startupService;
     private ThemeService? _themeService;
+    private LocalizationService? _localizationService;
     private TrayIconService? _trayIconService;
     private bool _isShuttingDown;
     private bool _isHandleDragging;
@@ -86,10 +87,11 @@ public partial class App : System.Windows.Application
             StartWithWindows = _startupService.IsEnabled(),
         };
         _themeService.Apply(this, _settings);
+        _localizationService = new LocalizationService(_settings.LanguageMode);
 
         var shelfItems = _shelfStore.LoadAsync().GetAwaiter().GetResult();
         var dockService = new WindowDockService();
-        var dragDropService = new DragDropService();
+        var dragDropService = new DragDropService(_localizationService);
         var imageStore = new ImageStore(appDataRoot);
         var fileActionService = new FileActionService();
         var clipboardService = new ClipboardService();
@@ -101,6 +103,7 @@ public partial class App : System.Windows.Application
             clipboardService,
             imageStore,
             ConfirmClearAll,
+            _localizationService,
             _settings.DensityMode,
             _settings.ThemeMode);
         _shelfViewModel.PropertyChanged += (_, args) =>
@@ -142,6 +145,7 @@ public partial class App : System.Windows.Application
             },
             OnHandlePointerEntered,
             OnShellPointerLeft);
+        _handleWindow.DataContext = _shelfViewModel;
         _shelfWindow.AttachHandleWindow(_handleWindow);
         _shelfWindow.ApplySettings(_settings);
         try
@@ -161,7 +165,8 @@ public partial class App : System.Windows.Application
             ShowShelfExplicitly,
             HideShelfExplicitly,
             OpenSettingsWindow,
-            ShutdownApplication);
+            ShutdownApplication,
+            _localizationService);
         _startupLogService.Write("Startup complete.");
     }
 
@@ -306,12 +311,12 @@ public partial class App : System.Windows.Application
 
     private bool ConfirmClearAll(int itemCount)
     {
-        var message = itemCount == 1
-            ? "确定要清空当前 1 个暂存项吗？原始文件不会被删除。"
-            : $"确定要清空当前 {itemCount} 个暂存项吗？原始文件不会被删除。";
+        var localizationService = _localizationService ?? new LocalizationService(_settings.LanguageMode);
+        var texts = localizationService.Text;
+        var message = localizationService.ClearAllMessage(itemCount);
         var result = System.Windows.MessageBox.Show(
             message,
-            "清空 DropShelf",
+            texts.ClearAllTitle,
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Warning,
             System.Windows.MessageBoxResult.No);
@@ -322,6 +327,7 @@ public partial class App : System.Windows.Application
     private void ApplySettings(AppSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _localizationService?.SetLanguage(_settings.LanguageMode);
         _themeService?.Apply(this, _settings);
         _shelfWindow?.ApplySettings(_settings);
         _handleWindow?.ApplySettings(_settings);

@@ -30,6 +30,7 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     private readonly IClipboardService _clipboardService;
     private readonly IFileActionService _fileActionService;
+    private readonly LocalizationService _localizationService;
     private readonly Action<ShelfItemViewModel> _remove;
     private string? _statusMessage;
 
@@ -37,12 +38,14 @@ public sealed class ShelfItemViewModel : ObservableObject
         ShelfItem item,
         IFileActionService fileActionService,
         IClipboardService clipboardService,
-        Action<ShelfItemViewModel> remove)
+        Action<ShelfItemViewModel> remove,
+        LocalizationService? localizationService = null)
     {
         Item = item ?? throw new ArgumentNullException(nameof(item));
         _fileActionService = fileActionService ?? throw new ArgumentNullException(nameof(fileActionService));
         _clipboardService = clipboardService ?? throw new ArgumentNullException(nameof(clipboardService));
         _remove = remove ?? throw new ArgumentNullException(nameof(remove));
+        _localizationService = localizationService ?? new LocalizationService();
 
         CopyCommand = new RelayCommand(_ => Copy(), _ => CanCopy);
         CopyPathCommand = CopyCommand;
@@ -54,7 +57,7 @@ public sealed class ShelfItemViewModel : ObservableObject
     public ShelfItem Item { get; }
 
     public string DisplayName => string.IsNullOrWhiteSpace(Item.DisplayName)
-        ? SourcePath ?? "Untitled item"
+        ? SourcePath ?? _localizationService.Text.UntitledItem
         : Item.DisplayName;
 
     public string? SourcePath => Item.SourcePath;
@@ -83,12 +86,7 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string TypeDisplayName => Item.Type switch
     {
-        ShelfItemType.File => "文件",
-        ShelfItemType.Folder => "文件夹",
-        ShelfItemType.Text => "文本",
-        ShelfItemType.Url => "链接",
-        ShelfItemType.Image => "图片",
-        _ => "项目",
+        _ => _localizationService.TypeDisplayName(Item.Type),
     };
 
     public string TypeIcon => Item.Type switch
@@ -152,9 +150,34 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public ICommand RemoveCommand { get; }
 
+    public string DragOutTooltip => _localizationService.Text.DragOutTooltip;
+
+    public string ContextCopyText => _localizationService.Text.ContextCopy;
+
+    public string ContextOpenText => _localizationService.Text.ContextOpen;
+
+    public string ContextRevealText => _localizationService.Text.ContextReveal;
+
+    public string ContextRemoveText => _localizationService.Text.ContextRemove;
+
+    public string MissingSourceText => _localizationService.Text.MissingSource;
+
     public void RefreshPathState()
     {
         OnPathStateChanged();
+    }
+
+    public void RefreshLocalizedText()
+    {
+        OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(TypeDisplayName));
+        OnPropertyChanged(nameof(MetadataText));
+        OnPropertyChanged(nameof(DragOutTooltip));
+        OnPropertyChanged(nameof(ContextCopyText));
+        OnPropertyChanged(nameof(ContextOpenText));
+        OnPropertyChanged(nameof(ContextRevealText));
+        OnPropertyChanged(nameof(ContextRemoveText));
+        OnPropertyChanged(nameof(MissingSourceText));
     }
 
     public void SetStatusMessage(string message)
@@ -174,19 +197,19 @@ public sealed class ShelfItemViewModel : ObservableObject
         var clipboardText = ClipboardText;
         if (string.IsNullOrWhiteSpace(clipboardText))
         {
-            StatusMessage = "没有可复制的内容。";
+            StatusMessage = _localizationService.Text.CopyNoContent;
             return;
         }
 
         if (!_clipboardService.SetText(clipboardText))
         {
-            StatusMessage = "复制失败。";
+            StatusMessage = _localizationService.Text.CopyFailed;
             return;
         }
 
         StatusMessage = string.Equals(clipboardText, SourcePath, StringComparison.Ordinal)
-            ? "路径已复制。"
-            : "已复制。";
+            ? _localizationService.Text.PathCopied
+            : _localizationService.Text.Copied;
     }
 
     public void Open()
@@ -195,19 +218,19 @@ public sealed class ShelfItemViewModel : ObservableObject
         {
             StatusMessage = _fileActionService.OpenUrl(Item.Content ?? string.Empty)
                 ? null
-                : "链接无法打开。";
+                : _localizationService.Text.UrlOpenFailed;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(ActionPath))
         {
-            StatusMessage = "没有可用路径。";
+            StatusMessage = _localizationService.Text.NoPath;
             return;
         }
 
         StatusMessage = _fileActionService.Open(ActionPath)
             ? null
-            : "项目缺失或无法打开。";
+            : _localizationService.Text.OpenFailed;
         OnPathStateChanged();
     }
 
@@ -215,13 +238,13 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(Item.ImagePath) || !Exists)
         {
-            StatusMessage = "图片缺失。";
+            StatusMessage = _localizationService.Text.MissingImage;
             return;
         }
 
         StatusMessage = _clipboardService.SetImageFromPath(Item.ImagePath)
-            ? "已复制。"
-            : "图片复制失败。";
+            ? _localizationService.Text.Copied
+            : _localizationService.Text.ImageCopyFailed;
         OnPathStateChanged();
     }
 
@@ -229,13 +252,13 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ActionPath))
         {
-            StatusMessage = "没有可用路径。";
+            StatusMessage = _localizationService.Text.NoPath;
             return;
         }
 
         StatusMessage = _fileActionService.RevealInExplorer(ActionPath)
             ? null
-            : "项目缺失或无法定位。";
+            : _localizationService.Text.RevealFailed;
         OnPathStateChanged();
     }
 
@@ -282,21 +305,21 @@ public sealed class ShelfItemViewModel : ObservableObject
         var detail = Item.Type switch
         {
             ShelfItemType.File => GetFileDetail(),
-            ShelfItemType.Folder => Exists ? "文件夹" : "已缺失",
+            ShelfItemType.Folder => Exists ? _localizationService.Text.FolderDetail : _localizationService.Text.MissingDetail,
             ShelfItemType.Image => GetImageDetail(),
             ShelfItemType.Text => GetTextDetail(),
             ShelfItemType.Url => GetUrlDetail(),
-            _ => "项目",
+            _ => _localizationService.Text.TypeItem,
         };
 
-        return $"{TypeDisplayName} · {detail} · {Item.CreatedAt.LocalDateTime:MM-dd HH:mm}";
+        return _localizationService.MetadataText(Item.Type, detail, Item.CreatedAt);
     }
 
     private string GetFileDetail()
     {
         if (string.IsNullOrWhiteSpace(SourcePath) || !Exists)
         {
-            return "已缺失";
+            return _localizationService.Text.MissingDetail;
         }
 
         try
@@ -306,7 +329,7 @@ public sealed class ShelfItemViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return "大小未知";
+            return _localizationService.Text.UnknownSize;
         }
     }
 
@@ -314,7 +337,7 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ActionPath) || !Exists)
         {
-            return "已缺失";
+            return _localizationService.Text.MissingDetail;
         }
 
         try
@@ -324,14 +347,14 @@ public sealed class ShelfItemViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return "大小未知";
+            return _localizationService.Text.UnknownSize;
         }
     }
 
     private string GetTextDetail()
     {
         var length = Item.Content?.Length ?? 0;
-        return length == 0 ? "空文本" : $"{length} 字符";
+        return _localizationService.TextLengthDetail(length);
     }
 
     private string GetUrlDetail()
@@ -339,7 +362,7 @@ public sealed class ShelfItemViewModel : ObservableObject
         if (!Uri.TryCreate(Item.Content, UriKind.Absolute, out var uri) ||
             string.IsNullOrWhiteSpace(uri.Host))
         {
-            return "链接";
+            return _localizationService.Text.UrlDetail;
         }
 
         return uri.Host;

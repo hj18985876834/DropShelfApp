@@ -10,6 +10,7 @@ namespace DropShelf.App.ViewModels;
 public sealed class SettingsViewModel : ObservableObject
 {
     private readonly Action<AppSettings>? _applySettings;
+    private readonly LocalizationService _localizationService;
     private readonly SettingsStore? _settingsStore;
     private readonly StartupService? _startupService;
     private AppSettings _lastAppliedSettings;
@@ -42,6 +43,7 @@ public sealed class SettingsViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(settings);
 
+        _localizationService = new LocalizationService(settings.LanguageMode);
         _settingsStore = settingsStore;
         _startupService = startupService;
         _applySettings = applySettings;
@@ -65,57 +67,53 @@ public sealed class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<LanguageMode> LanguageModeOptions { get; } = Enum.GetValues<LanguageMode>();
 
-    public string WindowTitle => IsChinese ? "DropShelf 设置" : "DropShelf Settings";
+    private AppText Text => _localizationService.Text;
 
-    public string HeaderTitle => IsChinese ? "设置" : "Settings";
+    public string WindowTitle => Text.SettingsWindowTitle;
 
-    public string PreferencesTitle => IsChinese ? "偏好设置" : "Preferences";
+    public string HeaderTitle => Text.SettingsHeaderTitle;
 
-    public string ShelfPositionLabel => IsChinese ? "收纳栏位置" : "Shelf position";
+    public string PreferencesTitle => Text.PreferencesTitle;
 
-    public string ResetDockPositionText => IsChinese ? "重置到右侧边缘" : "Reset to right edge";
+    public string ShelfPositionLabel => Text.ShelfPositionLabel;
 
-    public string ThemeLabel => IsChinese ? "主题" : "Theme";
+    public string ResetDockPositionText => Text.ResetDockPositionText;
 
-    public string DensityLabel => IsChinese ? "密度" : "Density";
+    public string ThemeLabel => Text.ThemeLabel;
 
-    public string LanguageLabel => IsChinese ? "语言" : "Language";
+    public string DensityLabel => Text.DensityLabel;
 
-    public string StartWithWindowsText => IsChinese ? "开机自启动" : "Start with Windows";
+    public string LanguageLabel => Text.LanguageLabel;
 
-    public string AboutTitle => IsChinese ? "关于" : "About";
+    public string StartWithWindowsText => Text.StartWithWindowsText;
 
-    public string SoftwareLabel => IsChinese ? "软件" : "Software";
+    public string AboutTitle => Text.AboutTitle;
 
-    public string IntroductionLabel => IsChinese ? "介绍" : "Introduction";
+    public string SoftwareLabel => Text.SoftwareLabel;
 
-    public string UsageLabel => IsChinese ? "使用方法" : "How to use";
+    public string IntroductionLabel => Text.IntroductionLabel;
 
-    public string VersionLabel => IsChinese ? "版本" : "Version";
+    public string UsageLabel => Text.UsageLabel;
 
-    public string DeveloperLabel => IsChinese ? "开发者" : "Developer";
+    public string VersionLabel => Text.VersionLabel;
 
-    public string ContactLabel => IsChinese ? "联系方式" : "Contact";
+    public string DeveloperLabel => Text.DeveloperLabel;
 
-    public string ApplyText => IsChinese ? "应用" : "Apply";
+    public string ContactLabel => Text.ContactLabel;
 
-    public string CloseText => IsChinese ? "关闭" : "Close";
+    public string ApplyText => Text.ApplyText;
+
+    public string CloseText => Text.CloseText;
 
     public string AppName => "DropShelf";
 
-    public string AppDescription =>
-        IsChinese
-            ? "这是由江江学长开发的一款运行于 Windows 本地桌面的临时收纳栏工具，可存放文件、文件夹、文本、链接与图片。"
-            : "A local Windows desktop shelf developed by Jiangjiang Xuezhang for temporarily storing files, folders, text, links, and images.";
+    public string AppDescription => Text.AppDescription;
 
-    public string UsageGuide =>
-        IsChinese
-            ? "将内容拖放到屏幕边缘手柄或打开后的收纳栏中，需要时可复制、打开、在资源管理器中定位、移除，或再拖回其他窗口使用。"
-            : "Drag content onto the screen-edge handle or open shelf, then copy, open, reveal, remove, or drag items back out when needed.";
+    public string UsageGuide => Text.UsageGuide;
 
     public string Version => GetApplicationVersion();
 
-    public string Developer => IsChinese ? "江江学长" : "Jiangjiang Xuezhang";
+    public string Developer => Text.Developer;
 
     public string Contact => "2748432469@qq.com";
 
@@ -154,6 +152,7 @@ public sealed class SettingsViewModel : ObservableObject
             }
 
             ClearStatus();
+            _localizationService.SetLanguage(value);
             RaiseLocalizedTextChanged();
         }
     }
@@ -314,17 +313,13 @@ public sealed class SettingsViewModel : ObservableObject
     {
         return value switch
         {
-            LanguageMode.Chinese => IsChinese ? "中文" : "Chinese",
-            LanguageMode.English => IsChinese ? "英文" : "English",
-            _ => value.ToString(),
+            _ => _localizationService.LanguageName(value),
         };
     }
 
-    private bool IsChinese => LanguageMode == LanguageMode.Chinese;
+    private string SavedMessage => Text.SettingsSaved;
 
-    private string SavedMessage => IsChinese ? "设置已保存。" : "Settings saved.";
-
-    private string SaveErrorMessage => IsChinese ? "无法保存设置。" : "Unable to save settings.";
+    private string SaveErrorMessage => Text.SettingsSaveFailed;
 
     private void RaiseLocalizedTextChanged()
     {

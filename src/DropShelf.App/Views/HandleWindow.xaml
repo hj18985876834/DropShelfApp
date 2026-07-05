@@ -68,7 +68,7 @@
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             Style="{StaticResource HandleButtonStyle}"
-            ToolTip="Show or hide DropShelf"
+            ToolTip="{Binding HandleTooltip}"
             AllowDrop="True"
             Click="HandleButton_OnClick"
             DragOver="HandleButton_OnDragOver"

@@ -416,7 +416,7 @@ public sealed class DragDropServiceTests
         Assert.IsFalse(result.CanStartDrag);
         Assert.IsFalse(result.CanDrag);
         Assert.IsNull(result.Payload);
-        StringAssert.Contains(result.Message, "too large");
+        StringAssert.Contains(result.Message, "项目过大");
         StringAssert.Contains(result.Message, "512 MB");
     }
 
@@ -466,7 +466,7 @@ public sealed class DragDropServiceTests
         Assert.IsFalse(result.CanStartDrag);
         Assert.IsFalse(result.CanDrag);
         Assert.IsNull(result.Payload);
-        StringAssert.Contains(result.Message, "too large");
+        StringAssert.Contains(result.Message, "项目过大");
         StringAssert.Contains(result.Message, "512 MB");
     }
 
@@ -485,7 +485,7 @@ public sealed class DragDropServiceTests
         Assert.IsFalse(result.CanStartDrag);
         Assert.IsFalse(result.CanDrag);
         Assert.IsNull(result.Payload);
-        Assert.AreEqual("Source is missing.", result.Message);
+        Assert.AreEqual("源文件缺失。", result.Message);
     }
 
     [TestMethod]
@@ -503,6 +503,21 @@ public sealed class DragDropServiceTests
         Assert.IsFalse(result.CanStartDrag);
         Assert.IsFalse(result.CanDrag);
         Assert.IsNull(result.Payload);
+        Assert.AreEqual("源文件缺失。", result.Message);
+    }
+
+    [TestMethod]
+    public void TryCreateDragOutPayload_UsesConfiguredLanguageForMessages()
+    {
+        var service = new DragDropService(new LocalizationService(LanguageMode.English));
+
+        var result = service.TryCreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "missing.txt",
+            SourcePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt"),
+        });
+
         Assert.AreEqual("Source is missing.", result.Message);
     }
 

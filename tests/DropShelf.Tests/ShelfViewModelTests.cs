@@ -223,6 +223,35 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void LanguageChange_UpdatesShelfAndExistingItemText()
+    {
+        var localizationService = new LocalizationService();
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var createdAtText = createdAt.LocalDateTime.ToString("MM-dd HH:mm");
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem
+                {
+                    Type = ShelfItemType.Text,
+                    DisplayName = "Note",
+                    Content = "hello",
+                    CreatedAt = createdAt,
+                },
+            ],
+            localizationService: localizationService);
+
+        Assert.AreEqual("暂存架为空", viewModel.EmptyTitle);
+        Assert.AreEqual($"文本 · 5 字符 · {createdAtText}", viewModel.Items[0].MetadataText);
+
+        localizationService.SetLanguage(LanguageMode.English);
+
+        Assert.AreEqual("Shelf is empty", viewModel.EmptyTitle);
+        Assert.AreEqual($"Text · 5 chars · {createdAtText}", viewModel.Items[0].MetadataText);
+        Assert.AreEqual("Copy", viewModel.Items[0].ContextCopyText);
+    }
+
+    [TestMethod]
     public void SetStatusMessage_UpdatesCardStatus()
     {
         var item = new ShelfItem
@@ -507,14 +536,16 @@ public sealed class ShelfViewModelTests
         IFileActionService? fileActionService = null,
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
-        Func<int, bool>? confirmClearAll = null)
+        Func<int, bool>? confirmClearAll = null,
+        LocalizationService? localizationService = null)
     {
         return new ShelfViewModel(
             initialItems: initialItems,
             fileActionService: fileActionService ?? new FakeFileActionService(),
             clipboardService: clipboardService ?? new FakeClipboardService(),
             imageStore: imageStore,
-            confirmClearAll: confirmClearAll);
+            confirmClearAll: confirmClearAll,
+            localizationService: localizationService);
     }
 
     private sealed class FakeClipboardService : IClipboardService

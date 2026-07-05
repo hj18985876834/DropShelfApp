@@ -126,19 +126,19 @@
                     MouseLeftButtonDown="ShelfItem_OnMouseLeftButtonDown"
                     MouseLeftButtonUp="ShelfItem_OnMouseLeftButtonUp"
                     SnapsToDevicePixels="True"
-                    ToolTip="拖出以复制">
+                    ToolTip="{Binding DragOutTooltip}">
                 <Border.ContextMenu>
                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                  Opened="CardContextMenu_OnOpened"
                                  Closed="CardContextMenu_OnClosed">
-                        <MenuItem Header="复制"
+                        <MenuItem Header="{Binding ContextCopyText}"
                                   Command="{Binding CopyCommand}" />
-                        <MenuItem Header="打开"
+                        <MenuItem Header="{Binding ContextOpenText}"
                                   Command="{Binding OpenCommand}" />
-                        <MenuItem Header="在资源管理器中定位"
+                        <MenuItem Header="{Binding ContextRevealText}"
                                   Command="{Binding RevealCommand}" />
                         <Separator />
-                        <MenuItem Header="移除"
+                        <MenuItem Header="{Binding ContextRemoveText}"
                                   Command="{Binding RemoveCommand}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -256,7 +256,7 @@
                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding MetadataText}" />
-                        <TextBlock Text="源文件缺失"
+                        <TextBlock Text="{Binding MissingSourceText}"
                                    Margin="0,4,0,0"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
                                    FontWeight="SemiBold"
@@ -399,7 +399,7 @@
                                 <TextBlock Text="{Binding ItemCount, Mode=OneWay}"
                                            FontSize="{DynamicResource DropShelfBodyFontSize}"
                                            Foreground="{DynamicResource DropShelfMutedTextBrush}" />
-                                <TextBlock Text=" 项"
+                                <TextBlock Text="{Binding ItemCountSuffix}"
                                            FontSize="{DynamicResource DropShelfBodyFontSize}"
                                            Foreground="{DynamicResource DropShelfMutedTextBrush}" />
                             </StackPanel>
@@ -413,15 +413,15 @@
                         <Button Content="&#xE74D;"
                                 Command="{Binding ClearAllCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"
-                                ToolTip="清空全部" />
+                                ToolTip="{Binding ClearAllTooltip}" />
                         <Button Content="&#xE713;"
                                 Command="{Binding OpenSettingsCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"
-                                ToolTip="设置" />
+                                ToolTip="{Binding SettingsTooltip}" />
                         <Button Content="&#xE70D;"
                                 Command="{Binding HideShelfCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"
-                                ToolTip="折叠" />
+                                ToolTip="{Binding CollapseTooltip}" />
                     </StackPanel>
                 </Grid>
 
@@ -473,13 +473,13 @@
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                 </Border>
-                                <TextBlock Text="暂存架为空"
+                                <TextBlock Text="{Binding EmptyTitle}"
                                            Margin="0,14,0,0"
                                            FontSize="16"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource DropShelfTextBrush}"
                                            TextAlignment="Center" />
-                                <TextBlock Text="拖入文件、文本或图片，稍后再取用。"
+                                <TextBlock Text="{Binding EmptyDescription}"
                                            Margin="0,6,0,0"
                                            FontSize="{DynamicResource DropShelfBodyFontSize}"
                                            Foreground="{DynamicResource DropShelfMutedTextBrush}"
@@ -493,7 +493,7 @@
                                             BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="5">
-                                        <TextBlock Text="文件"
+                                        <TextBlock Text="{Binding EmptyFileChip}"
                                                    FontSize="11"
                                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                                    TextAlignment="Center" />
@@ -504,7 +504,7 @@
                                             BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="5">
-                                        <TextBlock Text="文本"
+                                        <TextBlock Text="{Binding EmptyTextChip}"
                                                    FontSize="11"
                                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                                    TextAlignment="Center" />
@@ -515,7 +515,7 @@
                                             BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="5">
-                                        <TextBlock Text="图片"
+                                        <TextBlock Text="{Binding EmptyImageChip}"
                                                    FontSize="11"
                                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                                    TextAlignment="Center" />
@@ -573,17 +573,16 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                                 <TextBlock x:Name="DropStateText"
+                                           Text="{Binding DropStateText}"
                                            Margin="0,8,0,0"
                                            FontSize="14"
                                            FontWeight="SemiBold"
                                            TextAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="{x:Type TextBlock}">
-                                            <Setter Property="Text" Value="松开即可添加" />
                                             <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsDragOverUnsupported}" Value="True">
-                                                    <Setter Property="Text" Value="暂不支持此内容" />
                                                     <Setter Property="Foreground" Value="{DynamicResource DropShelfWarningTextBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>

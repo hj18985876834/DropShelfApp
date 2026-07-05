@@ -24,6 +24,12 @@ public sealed class DragDropService
     private static readonly string[] EncodedImageFormats = ["PNG", "JFIF", "TIFF"];
     private static readonly string[] DibImageFormats = [WpfDataFormats.Dib, "DeviceIndependentBitmapV5", "Format17"];
     private static readonly string[] DrawingImageFormats = ["System.Drawing.Bitmap", WpfDataFormats.Bitmap];
+    private readonly LocalizationService _localizationService;
+
+    public DragDropService(LocalizationService? localizationService = null)
+    {
+        _localizationService = localizationService ?? new LocalizationService();
+    }
 
     public bool CanCreateItems(WpfDataObject dataObject)
     {
@@ -196,7 +202,7 @@ public sealed class DragDropService
         {
             ShelfItemType.File or ShelfItemType.Folder or ShelfItemType.Image => TryCreatePathDragOutPayload(item),
             ShelfItemType.Text or ShelfItemType.Url => TryCreateTextDragOutPayload(item),
-            _ => DragOutPayloadResult.Invalid("Only file, folder, image, text, and URL items can be dragged out."),
+            _ => DragOutPayloadResult.Invalid(_localizationService.Text.UnsupportedContent),
         };
     }
 
@@ -211,47 +217,47 @@ public sealed class DragDropService
         return dataObject.GetDataPresent(format, autoConvert: false);
     }
 
-    private static DragOutPayloadResult TryCreatePathDragOutPayload(ShelfItem item)
+    private DragOutPayloadResult TryCreatePathDragOutPayload(ShelfItem item)
     {
         var dragOutPath = item.Type == ShelfItemType.Image
             ? item.ImagePath
             : item.SourcePath;
         if (string.IsNullOrWhiteSpace(dragOutPath))
         {
-            return DragOutPayloadResult.Invalid("No source path available.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.NoPath);
         }
 
         var dragOutType = GetItemType(dragOutPath);
         if (dragOutType is null)
         {
-            return DragOutPayloadResult.Invalid("Source is missing.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.DragOutSourceMissing);
         }
 
         if (!TryGetPathSize(dragOutPath, dragOutType.Value, MaxDragOutBytes, out var sizeBytes))
         {
-            return DragOutPayloadResult.Invalid("Cannot read item size for drag-out.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.DragOutSizeUnreadable);
         }
 
         if (sizeBytes > MaxDragOutBytes)
         {
-            return DragOutPayloadResult.Invalid($"Item is too large to drag out. Limit is {FormatBytes(MaxDragOutBytes)}.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.DragOutTooLarge);
         }
 
         return DragOutPayloadResult.Valid(DragOutPayload.ForFiles([dragOutPath], sizeBytes));
     }
 
-    private static DragOutPayloadResult TryCreateTextDragOutPayload(ShelfItem item)
+    private DragOutPayloadResult TryCreateTextDragOutPayload(ShelfItem item)
     {
         var text = item.Content;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return DragOutPayloadResult.Invalid("No content available for drag-out.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.CopyNoContent);
         }
 
         var sizeBytes = Encoding.UTF8.GetByteCount(text);
         if (sizeBytes > MaxDragOutBytes)
         {
-            return DragOutPayloadResult.Invalid($"Item is too large to drag out. Limit is {FormatBytes(MaxDragOutBytes)}.");
+            return DragOutPayloadResult.Invalid(_localizationService.Text.DragOutTooLarge);
         }
 
         return DragOutPayloadResult.Valid(DragOutPayload.ForText(text));
