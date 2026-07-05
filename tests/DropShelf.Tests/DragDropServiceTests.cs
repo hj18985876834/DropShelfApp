@@ -173,7 +173,9 @@ public sealed class DragDropServiceTests
 
         Assert.IsNotNull(payload);
         Assert.AreEqual(DragDropEffects.Copy, payload.AllowedEffects);
+        Assert.AreEqual(7, payload.TotalBytes);
         CollectionAssert.AreEqual(new[] { sourcePath }, payload.Paths.ToArray());
+        Assert.IsTrue(payload.CreateDataObject().GetDataPresent(DragDropService.InternalDragFormat));
     }
 
     [TestMethod]
@@ -193,7 +195,102 @@ public sealed class DragDropServiceTests
 
         Assert.IsNotNull(payload);
         Assert.AreEqual(DragDropEffects.Copy, payload.AllowedEffects);
+        Assert.AreEqual(0, payload.TotalBytes);
         CollectionAssert.AreEqual(new[] { sourcePath }, payload.Paths.ToArray());
+    }
+
+    [TestMethod]
+    public void TryCreateDragOutPayload_ReturnsMessageForOversizedFile()
+    {
+        using var tempDirectory = new TempDirectory();
+        var sourcePath = Path.Combine(tempDirectory.Path, "large.bin");
+        using (var stream = new FileStream(sourcePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(DragDropService.MaxDragOutBytes + 1);
+        }
+
+        var service = new DragDropService();
+
+        var result = service.TryCreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "large.bin",
+            SourcePath = sourcePath,
+        });
+
+        Assert.IsFalse(result.CanStartDrag);
+        Assert.IsFalse(result.CanDrag);
+        Assert.IsNull(result.Payload);
+        StringAssert.Contains(result.Message, "too large");
+        StringAssert.Contains(result.Message, "512 MB");
+    }
+
+    [TestMethod]
+    public void CreateItems_IgnoresInternalDragToAvoidDuplicateShelfRecords()
+    {
+        using var tempDirectory = new TempDirectory();
+        var appDataRoot = Path.Combine(tempDirectory.Path, "app-data");
+        var sourcePath = Path.Combine(tempDirectory.Path, "source.txt");
+        File.WriteAllText(sourcePath, "content");
+        var service = new DragDropService();
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "source.txt",
+            SourcePath = sourcePath,
+        });
+        Assert.IsNotNull(payload);
+        var dataObject = payload.CreateDataObject();
+
+        var items = service.CreateItems(dataObject, new ImageStore(appDataRoot));
+
+        Assert.IsEmpty(items);
+        Assert.IsFalse(service.CanCreateItems(dataObject));
+    }
+
+    [TestMethod]
+    public void TryCreateDragOutPayload_ReturnsMessageForOversizedFolder()
+    {
+        using var tempDirectory = new TempDirectory();
+        var sourcePath = Path.Combine(tempDirectory.Path, "large-folder");
+        Directory.CreateDirectory(sourcePath);
+        using (var stream = new FileStream(Path.Combine(sourcePath, "large.bin"), FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(DragDropService.MaxDragOutBytes + 1);
+        }
+
+        var service = new DragDropService();
+
+        var result = service.TryCreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Folder,
+            DisplayName = "large-folder",
+            SourcePath = sourcePath,
+        });
+
+        Assert.IsFalse(result.CanStartDrag);
+        Assert.IsFalse(result.CanDrag);
+        Assert.IsNull(result.Payload);
+        StringAssert.Contains(result.Message, "too large");
+        StringAssert.Contains(result.Message, "512 MB");
+    }
+
+    [TestMethod]
+    public void TryCreateDragOutPayload_ReturnsMessageForMissingSource()
+    {
+        var service = new DragDropService();
+
+        var result = service.TryCreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "missing.txt",
+            SourcePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.txt"),
+        });
+
+        Assert.IsFalse(result.CanStartDrag);
+        Assert.IsFalse(result.CanDrag);
+        Assert.IsNull(result.Payload);
+        Assert.AreEqual("Source is missing.", result.Message);
     }
 
     [TestMethod]

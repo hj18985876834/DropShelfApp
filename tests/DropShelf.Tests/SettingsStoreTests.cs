@@ -16,6 +16,7 @@ public sealed class SettingsStoreTests
         var settings = await store.LoadAsync();
 
         Assert.AreEqual(DockEdge.Right, settings.DockEdge);
+        Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.IsFalse(settings.StartWithWindows);
@@ -30,6 +31,7 @@ public sealed class SettingsStoreTests
         var expected = new AppSettings
         {
             DockEdge = DockEdge.Left,
+            DockOffsetRatio = 0.25,
             ThemeMode = ThemeMode.Dark,
             DensityMode = DensityMode.Comfortable,
             StartWithWindows = true,
@@ -40,6 +42,7 @@ public sealed class SettingsStoreTests
 
         Assert.IsTrue(File.Exists(Path.Combine(appDataRoot, "settings.json")));
         Assert.AreEqual(expected.DockEdge, actual.DockEdge);
+        Assert.AreEqual(expected.DockOffsetRatio, actual.DockOffsetRatio);
         Assert.AreEqual(expected.ThemeMode, actual.ThemeMode);
         Assert.AreEqual(expected.DensityMode, actual.DensityMode);
         Assert.AreEqual(expected.StartWithWindows, actual.StartWithWindows);
@@ -55,6 +58,7 @@ public sealed class SettingsStoreTests
         var settings = await store.LoadAsync();
 
         Assert.AreEqual(DockEdge.Right, settings.DockEdge);
+        Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.IsFalse(settings.StartWithWindows);
@@ -69,6 +73,7 @@ public sealed class SettingsStoreTests
             """
             {
               "dockEdge": "diagonal",
+              "dockOffsetRatio": 0.25,
               "themeMode": "dark",
               "densityMode": "compact",
               "startWithWindows": true
@@ -79,6 +84,7 @@ public sealed class SettingsStoreTests
         var settings = await store.LoadAsync();
 
         Assert.AreEqual(DockEdge.Right, settings.DockEdge);
+        Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.IsFalse(settings.StartWithWindows);

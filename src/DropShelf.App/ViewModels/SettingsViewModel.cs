@@ -14,6 +14,7 @@ public sealed class SettingsViewModel : ObservableObject
     private AppSettings _lastAppliedSettings;
     private DensityMode _densityMode;
     private DockEdge _dockEdge;
+    private double _dockOffsetRatio;
     private bool _hasStatus;
     private bool _isApplying;
     private bool _isStatusError;
@@ -44,11 +45,13 @@ public sealed class SettingsViewModel : ObservableObject
         _applySettings = applySettings;
         _lastAppliedSettings = settings;
         _dockEdge = settings.DockEdge;
+        _dockOffsetRatio = settings.DockOffsetRatio;
         _themeMode = settings.ThemeMode;
         _densityMode = settings.DensityMode;
         _startWithWindows = settings.StartWithWindows;
 
         ApplyCommand = new AsyncRelayCommand(_ => SaveAndApplyAsync("Settings saved."));
+        ResetDockPositionCommand = new RelayCommand(_ => ResetDockPosition());
     }
 
     public IReadOnlyList<DockEdge> DockEdgeOptions { get; } = Enum.GetValues<DockEdge>();
@@ -61,6 +64,12 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _dockEdge;
         set => SetPendingProperty(ref _dockEdge, value);
+    }
+
+    public double DockOffsetRatio
+    {
+        get => _dockOffsetRatio;
+        private set => SetPendingProperty(ref _dockOffsetRatio, value);
     }
 
     public ThemeMode ThemeMode
@@ -115,6 +124,8 @@ public sealed class SettingsViewModel : ObservableObject
 
     public ICommand ApplyCommand { get; }
 
+    public ICommand ResetDockPositionCommand { get; }
+
     public AppSettings Settings
     {
         get => CreateSettings();
@@ -122,10 +133,12 @@ public sealed class SettingsViewModel : ObservableObject
         {
             ArgumentNullException.ThrowIfNull(value);
             _dockEdge = value.DockEdge;
+            _dockOffsetRatio = value.DockOffsetRatio;
             _themeMode = value.ThemeMode;
             _densityMode = value.DensityMode;
             _startWithWindows = value.StartWithWindows;
             OnPropertyChanged(nameof(DockEdge));
+            OnPropertyChanged(nameof(DockOffsetRatio));
             OnPropertyChanged(nameof(ThemeMode));
             OnPropertyChanged(nameof(DensityMode));
             OnPropertyChanged(nameof(StartWithWindows));
@@ -166,10 +179,17 @@ public sealed class SettingsViewModel : ObservableObject
         return new AppSettings
         {
             DockEdge = DockEdge,
+            DockOffsetRatio = DockOffsetRatio,
             ThemeMode = ThemeMode,
             DensityMode = DensityMode,
             StartWithWindows = StartWithWindows,
         };
+    }
+
+    private void ResetDockPosition()
+    {
+        DockEdge = DockEdge.Right;
+        DockOffsetRatio = AppSettings.CreateDefault().DockOffsetRatio;
     }
 
     private void SetStatus(string message, bool isError)
@@ -197,10 +217,12 @@ public sealed class SettingsViewModel : ObservableObject
     private void ApplySettingsToProperties(AppSettings settings)
     {
         _dockEdge = settings.DockEdge;
+        _dockOffsetRatio = settings.DockOffsetRatio;
         _themeMode = settings.ThemeMode;
         _densityMode = settings.DensityMode;
         _startWithWindows = settings.StartWithWindows;
         OnPropertyChanged(nameof(DockEdge));
+        OnPropertyChanged(nameof(DockOffsetRatio));
         OnPropertyChanged(nameof(ThemeMode));
         OnPropertyChanged(nameof(DensityMode));
         OnPropertyChanged(nameof(StartWithWindows));

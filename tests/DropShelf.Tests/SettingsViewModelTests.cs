@@ -21,13 +21,16 @@ public sealed class SettingsViewModelTests
             settings => applied = settings);
 
         viewModel.DockEdge = DockEdge.Left;
+        viewModel.ResetDockPositionCommand.Execute(null);
         Assert.IsNull(applied);
 
         await ExecuteApplyAsync(viewModel);
 
         var saved = await store.LoadAsync();
-        Assert.AreEqual(DockEdge.Left, saved.DockEdge);
-        Assert.AreEqual(DockEdge.Left, applied?.DockEdge);
+        Assert.AreEqual(DockEdge.Right, saved.DockEdge);
+        Assert.AreEqual(0.5, saved.DockOffsetRatio);
+        Assert.AreEqual(DockEdge.Right, applied?.DockEdge);
+        Assert.AreEqual(0.5, applied?.DockOffsetRatio);
         Assert.IsTrue(viewModel.HasStatus);
         Assert.IsFalse(viewModel.IsStatusError);
     }

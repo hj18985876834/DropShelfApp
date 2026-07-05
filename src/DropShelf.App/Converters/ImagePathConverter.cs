@@ -8,6 +8,8 @@ namespace DropShelf.App.Converters;
 
 public sealed class ImagePathConverter : IValueConverter
 {
+    private const int DecodePixelSize = 96;
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not string path || string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -20,6 +22,8 @@ public sealed class ImagePathConverter : IValueConverter
             var image = new BitmapImage();
             image.BeginInit();
             image.CacheOption = BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth = DecodePixelSize;
+            image.DecodePixelHeight = DecodePixelSize;
             image.UriSource = new Uri(path, UriKind.Absolute);
             image.EndInit();
             image.Freeze();
@@ -30,6 +34,18 @@ public sealed class ImagePathConverter : IValueConverter
             return null;
         }
         catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
         {
             return null;
         }

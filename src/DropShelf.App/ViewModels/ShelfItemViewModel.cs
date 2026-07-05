@@ -8,6 +8,26 @@ namespace DropShelf.App.ViewModels;
 
 public sealed class ShelfItemViewModel : ObservableObject
 {
+    private static readonly HashSet<string> ImageFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".avif",
+        ".bmp",
+        ".dib",
+        ".gif",
+        ".heic",
+        ".heif",
+        ".ico",
+        ".jfif",
+        ".jpe",
+        ".jpeg",
+        ".jpg",
+        ".png",
+        ".tif",
+        ".tiff",
+        ".webp",
+        ".wdp",
+    };
+
     private readonly IClipboardService _clipboardService;
     private readonly IFileActionService _fileActionService;
     private readonly Action<ShelfItemViewModel> _remove;
@@ -45,6 +65,10 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string? ThumbnailPath => Item.ThumbnailPath;
 
+    public string? ImagePreviewPath => GetImagePreviewPath();
+
+    public bool HasImagePreview => !string.IsNullOrWhiteSpace(ImagePreviewPath);
+
     public ShelfItemType Type => Item.Type;
 
     public string TypeLabel => Item.Type switch
@@ -62,6 +86,14 @@ public sealed class ShelfItemViewModel : ObservableObject
     public string PreviewText => GetPreviewText();
 
     public bool IsFileSystemItem => Item.Type is ShelfItemType.File or ShelfItemType.Folder;
+
+    public bool IsTextContentItem => Item.Type is ShelfItemType.Text or ShelfItemType.Url;
+
+    public string? ExpandedContent => IsTextContentItem
+        ? Item.Content
+        : null;
+
+    public bool HasExpandedContent => !string.IsNullOrWhiteSpace(ExpandedContent);
 
     public bool HasSourcePath => !string.IsNullOrWhiteSpace(SourcePath);
 
@@ -101,6 +133,12 @@ public sealed class ShelfItemViewModel : ObservableObject
     public void RefreshPathState()
     {
         OnPathStateChanged();
+    }
+
+    public void SetStatusMessage(string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        StatusMessage = message;
     }
 
     public void Copy()
@@ -237,6 +275,37 @@ public sealed class ShelfItemViewModel : ObservableObject
         return null;
     }
 
+    private string? GetImagePreviewPath()
+    {
+        if (Item.Type is ShelfItemType.Image)
+        {
+            return !string.IsNullOrWhiteSpace(Item.ThumbnailPath)
+                ? Item.ThumbnailPath
+                : Item.ImagePath;
+        }
+
+        if (Item.Type is ShelfItemType.File &&
+            !string.IsNullOrWhiteSpace(Item.SourcePath) &&
+            IsSupportedImageFile(Item.SourcePath))
+        {
+            return Item.SourcePath;
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedImageFile(string path)
+    {
+        try
+        {
+            return ImageFileExtensions.Contains(Path.GetExtension(path));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
     private void OnPathStateChanged()
     {
         OnPropertyChanged(nameof(ActionPath));
@@ -246,6 +315,8 @@ public sealed class ShelfItemViewModel : ObservableObject
         OnPropertyChanged(nameof(CanUseFileSystemAction));
         OnPropertyChanged(nameof(CanOpen));
         OnPropertyChanged(nameof(CanCopy));
+        OnPropertyChanged(nameof(ImagePreviewPath));
+        OnPropertyChanged(nameof(HasImagePreview));
 
         if (OpenCommand is RelayCommand openCommand)
         {

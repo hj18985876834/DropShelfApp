@@ -11,6 +11,7 @@ public sealed class AppSettingsTests
         var settings = AppSettings.CreateDefault();
 
         Assert.AreEqual(DockEdge.Right, settings.DockEdge);
+        Assert.AreEqual(0.5, settings.DockOffsetRatio);
         Assert.AreEqual(ThemeMode.System, settings.ThemeMode);
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.IsFalse(settings.StartWithWindows);

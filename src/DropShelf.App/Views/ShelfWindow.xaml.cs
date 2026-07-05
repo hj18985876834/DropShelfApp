@@ -1,7 +1,7 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
@@ -20,26 +20,38 @@ namespace DropShelf.App.Views;
 
 public partial class ShelfWindow : Window
 {
+    private static readonly Duration ShellAnimationDuration = new(TimeSpan.FromMilliseconds(140));
+
     private readonly DragDropService _dragDropService;
     private readonly WindowDockService _dockService;
     private readonly ImageStore _imageStore;
     private readonly ShelfViewModel _viewModel;
+    private readonly Action? _pointerEntered;
+    private readonly Action? _pointerLeft;
+    private Window? _handleWindow;
     private bool _allowClose;
     private DockEdge _dockEdge;
     private WpfPoint? _dragStartPoint;
+    private bool _isPanelVisible;
+    private bool _wasExpandedByDrag;
 
     public ShelfWindow(
         ShelfViewModel viewModel,
         WindowDockService dockService,
         DragDropService dragDropService,
         ImageStore imageStore,
-        DockEdge dockEdge)
+        AppSettings settings,
+        Action? pointerEntered = null,
+        Action? pointerLeft = null)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _dockService = dockService ?? throw new ArgumentNullException(nameof(dockService));
         _dragDropService = dragDropService ?? throw new ArgumentNullException(nameof(dragDropService));
         _imageStore = imageStore ?? throw new ArgumentNullException(nameof(imageStore));
-        _dockEdge = dockEdge;
+        _pointerEntered = pointerEntered;
+        _pointerLeft = pointerLeft;
+        ArgumentNullException.ThrowIfNull(settings);
+        _dockEdge = settings.DockEdge;
 
         InitializeComponent();
         DataContext = _viewModel;
@@ -55,12 +67,17 @@ public partial class ShelfWindow : Window
         Loaded += (_, _) => ApplyShellState();
     }
 
+    public void AttachHandleWindow(Window handleWindow)
+    {
+        _handleWindow = handleWindow ?? throw new ArgumentNullException(nameof(handleWindow));
+        ApplyShellState();
+    }
+
     public void ApplySettings(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         _dockEdge = settings.DockEdge;
-        ApplyDockLayout();
         ApplyShellState();
     }
 
@@ -77,7 +94,6 @@ public partial class ShelfWindow : Window
             e.Cancel = true;
             _viewModel.IsShelfVisible = false;
             Hide();
-            Show();
             return;
         }
 
@@ -88,6 +104,7 @@ public partial class ShelfWindow : Window
     {
         if (e.Key == System.Windows.Input.Key.Escape)
         {
+            _wasExpandedByDrag = false;
             _viewModel.IsShelfVisible = false;
             e.Handled = true;
         }
@@ -120,109 +137,195 @@ public partial class ShelfWindow : Window
 
     private void ApplyShellState()
     {
-        ApplyDockLayout();
-        PanelHost.Visibility = _viewModel.IsShelfVisible ? Visibility.Visible : Visibility.Collapsed;
-        _dockService.Apply(this, _dockEdge, _viewModel.IsShelfVisible);
-    }
-
-    private void ApplyDockLayout()
-    {
-        var isHorizontal = _dockEdge is DockEdge.Top or DockEdge.Bottom;
-
-        RootLayout.ColumnDefinitions[0].Width = _dockEdge == DockEdge.Left
-            ? new GridLength(WindowDockService.HandleThickness)
-            : new GridLength(1, GridUnitType.Star);
-        RootLayout.ColumnDefinitions[1].Width = _dockEdge == DockEdge.Right
-            ? new GridLength(WindowDockService.HandleThickness)
-            : isHorizontal
-                ? new GridLength(0)
-                : new GridLength(1, GridUnitType.Star);
-        RootLayout.RowDefinitions[0].Height = _dockEdge == DockEdge.Top
-            ? new GridLength(WindowDockService.HandleThickness)
-            : new GridLength(1, GridUnitType.Star);
-        RootLayout.RowDefinitions[1].Height = _dockEdge == DockEdge.Bottom
-            ? new GridLength(WindowDockService.HandleThickness)
-            : isHorizontal
-                ? new GridLength(1, GridUnitType.Star)
-                : new GridLength(0);
-
-        ToggleHandle.Width = isHorizontal ? double.NaN : WindowDockService.HandleThickness;
-        ToggleHandle.Height = isHorizontal ? WindowDockService.HandleThickness : 132;
-        ToggleHandle.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-        ToggleHandle.VerticalAlignment = isHorizontal ? VerticalAlignment.Stretch : VerticalAlignment.Center;
-        ToggleContent.Orientation = isHorizontal ? System.Windows.Controls.Orientation.Horizontal : System.Windows.Controls.Orientation.Vertical;
-
-        switch (_dockEdge)
+        if (_viewModel.IsShelfVisible)
         {
-            case DockEdge.Left:
-                SetPanelPosition(column: 1, row: 0);
-                SetHandlePosition(column: 0, row: 0);
-                PanelHost.Margin = new Thickness(0, 8, 0, 8);
-                PanelHost.CornerRadius = new CornerRadius(0, 10, 10, 0);
-                break;
-            case DockEdge.Right:
-                SetPanelPosition(column: 0, row: 0);
-                SetHandlePosition(column: 1, row: 0);
-                PanelHost.Margin = new Thickness(0, 8, 0, 8);
-                PanelHost.CornerRadius = new CornerRadius(10, 0, 0, 10);
-                break;
-            case DockEdge.Top:
-                SetPanelPosition(column: 0, row: 1);
-                SetHandlePosition(column: 0, row: 0);
-                PanelHost.Margin = new Thickness(8, 0, 8, 0);
-                PanelHost.CornerRadius = new CornerRadius(0, 0, 10, 10);
-                break;
-            case DockEdge.Bottom:
-                SetPanelPosition(column: 0, row: 0);
-                SetHandlePosition(column: 0, row: 1);
-                PanelHost.Margin = new Thickness(8, 0, 8, 0);
-                PanelHost.CornerRadius = new CornerRadius(10, 10, 0, 0);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(_dockEdge), _dockEdge, null);
+            ShowPanel();
+        }
+        else
+        {
+            HidePanel();
         }
     }
 
-    private void SetPanelPosition(int column, int row)
+    private void ShowPanel()
     {
-        WpfGrid.SetColumn(PanelHost, column);
-        WpfGrid.SetRow(PanelHost, row);
+        if (_isPanelVisible)
+        {
+            PositionPanel();
+            return;
+        }
+
+        _isPanelVisible = true;
+        PositionPanel();
+        Show();
+        PanelHost.Visibility = Visibility.Visible;
+        PanelSlideTransform.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, null);
+        PanelSlideTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, null);
+
+        var offset = GetCollapsedPanelOffset();
+        PanelSlideTransform.X = offset.X;
+        PanelSlideTransform.Y = offset.Y;
+        PanelHost.Opacity = 0;
+
+        PanelSlideTransform.BeginAnimation(
+            System.Windows.Media.TranslateTransform.XProperty,
+            CreateAnimation(offset.X, 0));
+        PanelSlideTransform.BeginAnimation(
+            System.Windows.Media.TranslateTransform.YProperty,
+            CreateAnimation(offset.Y, 0));
+        PanelHost.BeginAnimation(UIElement.OpacityProperty, CreateAnimation(0, 1));
     }
 
-    private void SetHandlePosition(int column, int row)
+    private void HidePanel()
     {
-        WpfGrid.SetColumn(ToggleHandle, column);
-        WpfGrid.SetRow(ToggleHandle, row);
+        if (!_isPanelVisible)
+        {
+            PanelHost.Visibility = Visibility.Collapsed;
+            PanelHost.Opacity = 0;
+            Hide();
+            return;
+        }
+
+        _isPanelVisible = false;
+        var offset = GetCollapsedPanelOffset();
+        var opacityAnimation = CreateAnimation(1, 0);
+        opacityAnimation.Completed += (_, _) =>
+        {
+            if (!_viewModel.IsShelfVisible)
+            {
+                PanelHost.Visibility = Visibility.Collapsed;
+                Hide();
+            }
+        };
+
+        PanelSlideTransform.BeginAnimation(
+            System.Windows.Media.TranslateTransform.XProperty,
+            CreateAnimation(0, offset.X));
+        PanelSlideTransform.BeginAnimation(
+            System.Windows.Media.TranslateTransform.YProperty,
+            CreateAnimation(0, offset.Y));
+        PanelHost.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
+    }
+
+    private Vector GetCollapsedPanelOffset()
+    {
+        const double offset = 18;
+
+        return _dockEdge switch
+        {
+            DockEdge.Left => new Vector(-offset, 0),
+            DockEdge.Right => new Vector(offset, 0),
+            DockEdge.Top => new Vector(0, -offset),
+            DockEdge.Bottom => new Vector(0, offset),
+            _ => new Vector(0, 0),
+        };
+    }
+
+    private static DoubleAnimation CreateAnimation(double from, double to)
+    {
+        return new DoubleAnimation(from, to, ShellAnimationDuration)
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
     }
 
     private void DropZone_OnDragOver(object sender, WpfDragEventArgs e)
+    {
+        HandleDragOver(e, expandOnAccepted: false);
+    }
+
+    private void DropZone_OnDragLeave(object sender, WpfDragEventArgs e)
+    {
+        ClearDragState(e, collapseAutoExpanded: false);
+    }
+
+    private void DropZone_OnDrop(object sender, WpfDragEventArgs e)
+    {
+        HandleDrop(e);
+    }
+
+    private void ShelfHost_OnDragOver(object sender, WpfDragEventArgs e)
+    {
+        HandleDragOver(e, expandOnAccepted: true);
+    }
+
+    private void ShelfHost_OnDragLeave(object sender, WpfDragEventArgs e)
+    {
+        ClearDragState(e, collapseAutoExpanded: true);
+    }
+
+    private void ShelfHost_OnDrop(object sender, WpfDragEventArgs e)
+    {
+        HandleDrop(e);
+    }
+
+    private void ShelfHost_OnMouseEnter(object sender, WpfMouseEventArgs e)
+    {
+        _pointerEntered?.Invoke();
+    }
+
+    private void ShelfHost_OnMouseLeave(object sender, WpfMouseEventArgs e)
+    {
+        _pointerLeft?.Invoke();
+    }
+
+    private void HandleDragOver(WpfDragEventArgs e, bool expandOnAccepted)
     {
         var accepted = _dragDropService.CanCreateItems(e.Data);
         _viewModel.IsDragOverAccepted = accepted;
         _viewModel.IsDragOverUnsupported = !accepted;
         e.Effects = accepted ? WpfDragDropEffects.Copy : WpfDragDropEffects.None;
+
+        if (accepted && expandOnAccepted && !_viewModel.IsShelfVisible)
+        {
+            _wasExpandedByDrag = true;
+            _viewModel.IsShelfVisible = true;
+        }
+
         e.Handled = true;
     }
 
-    private void DropZone_OnDragLeave(object sender, WpfDragEventArgs e)
-    {
-        _viewModel.IsDragOverAccepted = false;
-        _viewModel.IsDragOverUnsupported = false;
-        e.Handled = true;
-    }
-
-    private void DropZone_OnDrop(object sender, WpfDragEventArgs e)
+    private void HandleDrop(WpfDragEventArgs e)
     {
         var items = _dragDropService.CreateItems(e.Data, _imageStore);
         if (items.Count > 0)
         {
             _viewModel.AddItems(items);
-            _viewModel.IsShelfVisible = true;
+            if (_wasExpandedByDrag)
+            {
+                _viewModel.IsShelfVisible = false;
+            }
+            else
+            {
+                _viewModel.IsShelfVisible = true;
+            }
+        }
+
+        _wasExpandedByDrag = false;
+        _viewModel.IsDragOverAccepted = false;
+        _viewModel.IsDragOverUnsupported = false;
+        e.Handled = true;
+    }
+
+    private void ClearDragState(WpfDragEventArgs e, bool collapseAutoExpanded)
+    {
+        if (collapseAutoExpanded && _wasExpandedByDrag)
+        {
+            _viewModel.IsShelfVisible = false;
+            _wasExpandedByDrag = false;
         }
 
         _viewModel.IsDragOverAccepted = false;
         _viewModel.IsDragOverUnsupported = false;
         e.Handled = true;
+    }
+
+    private void PositionPanel()
+    {
+        if (_handleWindow is not null)
+        {
+            _dockService.ApplyPanel(this, _handleWindow, _dockEdge);
+        }
     }
 
     private void PasteClipboardContent()
@@ -251,6 +354,7 @@ public partial class ShelfWindow : Window
         if (IsFromCardActionButton(e.OriginalSource))
         {
             _dragStartPoint = null;
+            ReleaseMouseCapture(sender);
             return;
         }
 
@@ -269,23 +373,52 @@ public partial class ShelfWindow : Window
             return;
         }
 
-        var payload = _dragDropService.CreateDragOutPayload(itemViewModel.Item);
-        if (payload is null)
+        var payloadResult = _dragDropService.TryCreateDragOutPayload(itemViewModel.Item);
+        if (!payloadResult.CanStartDrag || payloadResult.Payload is null)
         {
+            if (!string.IsNullOrWhiteSpace(payloadResult.Message))
+            {
+                itemViewModel.SetStatusMessage(payloadResult.Message);
+            }
+
             itemViewModel.RefreshPathState();
+            _dragStartPoint = null;
+            ReleaseMouseCapture(sender);
             e.Handled = true;
             return;
         }
 
+        var payload = payloadResult.Payload;
+        ReleaseMouseCapture(sender);
         WpfDragDrop.DoDragDrop((DependencyObject)sender, payload.CreateDataObject(), payload.AllowedEffects);
         itemViewModel.RefreshPathState();
         _dragStartPoint = null;
+        ReleaseMouseCapture(sender);
+
         e.Handled = true;
     }
 
     private void ShelfItem_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(this);
+        if (sender is UIElement element)
+        {
+            element.CaptureMouse();
+        }
+    }
+
+    private void ShelfItem_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _dragStartPoint = null;
+        ReleaseMouseCapture(sender);
+    }
+
+    private static void ReleaseMouseCapture(object sender)
+    {
+        if (sender is UIElement element && element.IsMouseCaptured)
+        {
+            element.ReleaseMouseCapture();
+        }
     }
 
     private void CardActionButton_OnClick(object sender, RoutedEventArgs e)

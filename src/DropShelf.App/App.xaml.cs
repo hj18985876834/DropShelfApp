@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
 using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
@@ -10,9 +11,11 @@ namespace DropShelf.App;
 public partial class App : System.Windows.Application
 {
     private const string SingleInstanceMutexName = "DropShelf.AppShell";
+    private static readonly TimeSpan HoverCollapseDelay = TimeSpan.FromMilliseconds(220);
 
     private Mutex? _singleInstanceMutex;
     private ShelfWindow? _shelfWindow;
+    private HandleWindow? _handleWindow;
     private SettingsWindow? _settingsWindow;
     private ShelfViewModel? _shelfViewModel;
     private AppSettings _settings = AppSettings.CreateDefault();
@@ -22,6 +25,9 @@ public partial class App : System.Windows.Application
     private ThemeService? _themeService;
     private TrayIconService? _trayIconService;
     private bool _isShuttingDown;
+    private bool _isHandleDragging;
+    private bool _isHoverExpanded;
+    private DispatcherTimer? _hoverCollapseTimer;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -35,6 +41,8 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        _hoverCollapseTimer = new DispatcherTimer { Interval = HoverCollapseDelay };
+        _hoverCollapseTimer.Tick += (_, _) => CollapseHoverShelfIfPointerOutside();
 
         var appDataRoot = new AppDataPathService().GetAppDataRoot();
         _settingsStore = new SettingsStore(appDataRoot);
@@ -46,6 +54,7 @@ public partial class App : System.Windows.Application
         _settings = new AppSettings
         {
             DockEdge = _settings.DockEdge,
+            DockOffsetRatio = _settings.DockOffsetRatio,
             ThemeMode = _settings.ThemeMode,
             DensityMode = _settings.DensityMode,
             StartWithWindows = _startupService.IsEnabled(),
@@ -75,13 +84,41 @@ public partial class App : System.Windows.Application
             }
         };
 
-        _shelfWindow = new ShelfWindow(_shelfViewModel, dockService, dragDropService, imageStore, _settings.DockEdge);
+        _shelfWindow = new ShelfWindow(
+            _shelfViewModel,
+            dockService,
+            dragDropService,
+            imageStore,
+            _settings,
+            OnShellPointerEntered,
+            OnShellPointerLeft);
+
+        _handleWindow = new HandleWindow(
+            dockService,
+            _settings,
+            ToggleShelfFromHandle,
+            ShowShelfExplicitly,
+            UpdateDockPlacement,
+            OnHandleDragStarted,
+            data => dragDropService.CanCreateItems(data),
+            data =>
+            {
+                var items = dragDropService.CreateItems(data, imageStore);
+                if (items.Count > 0)
+                {
+                    _shelfViewModel.AddItems(items);
+                    ShowShelfExplicitly();
+                }
+            },
+            OnHandlePointerEntered,
+            OnShellPointerLeft);
+        _shelfWindow.AttachHandleWindow(_handleWindow);
         _shelfWindow.ApplySettings(_settings);
-        _shelfWindow.Show();
+        _handleWindow.Show();
 
         _trayIconService = new TrayIconService(
-            () => _shelfViewModel.IsShelfVisible = true,
-            () => _shelfViewModel.IsShelfVisible = false,
+            ShowShelfExplicitly,
+            HideShelfExplicitly,
             OpenSettingsWindow,
             ShutdownApplication);
     }
@@ -113,7 +150,7 @@ public partial class App : System.Windows.Application
 
         _settingsWindow = new SettingsWindow
         {
-            Owner = _shelfWindow,
+            Owner = _handleWindow ?? (Window?)_shelfWindow,
             DataContext = new SettingsViewModel(
                 _settings,
                 _settingsStore,
@@ -136,6 +173,7 @@ public partial class App : System.Windows.Application
         DisposeTrayIcon();
         _settingsWindow?.Close();
         _shelfWindow?.ForceClose();
+        _handleWindow?.ForceClose();
         Shutdown();
         Dispatcher.InvokeShutdown();
     }
@@ -145,6 +183,124 @@ public partial class App : System.Windows.Application
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _themeService?.Apply(this, _settings);
         _shelfWindow?.ApplySettings(_settings);
+        _handleWindow?.ApplySettings(_settings);
+    }
+
+    private void UpdateDockPlacement(DockPlacement placement)
+    {
+        _isHandleDragging = false;
+        _settings = new AppSettings
+        {
+            DockEdge = placement.DockEdge,
+            DockOffsetRatio = placement.DockOffsetRatio,
+            ThemeMode = _settings.ThemeMode,
+            DensityMode = _settings.DensityMode,
+            StartWithWindows = _settings.StartWithWindows,
+        };
+        _shelfWindow?.ApplySettings(_settings);
+    }
+
+    private void ToggleShelfFromHandle()
+    {
+        StopHoverCollapseTimer();
+        if (_shelfViewModel is null)
+        {
+            return;
+        }
+
+        if (_isHoverExpanded && _shelfViewModel.IsShelfVisible)
+        {
+            _isHoverExpanded = false;
+            return;
+        }
+
+        _isHoverExpanded = false;
+        _shelfViewModel.IsShelfVisible = !_shelfViewModel.IsShelfVisible;
+    }
+
+    private void ShowShelfExplicitly()
+    {
+        StopHoverCollapseTimer();
+        _isHoverExpanded = false;
+        if (_shelfViewModel is not null)
+        {
+            _shelfViewModel.IsShelfVisible = true;
+        }
+    }
+
+    private void HideShelfExplicitly()
+    {
+        StopHoverCollapseTimer();
+        _isHoverExpanded = false;
+        if (_shelfViewModel is not null)
+        {
+            _shelfViewModel.IsShelfVisible = false;
+        }
+    }
+
+    private void OnHandleDragStarted()
+    {
+        _isHandleDragging = true;
+        HideShelfExplicitly();
+    }
+
+    private void OnHandlePointerEntered()
+    {
+        if (_isHandleDragging)
+        {
+            return;
+        }
+
+        StopHoverCollapseTimer();
+        _isHoverExpanded = true;
+        if (_shelfViewModel is not null)
+        {
+            _shelfViewModel.IsShelfVisible = true;
+        }
+    }
+
+    private void OnShellPointerEntered()
+    {
+        if (_isHoverExpanded)
+        {
+            StopHoverCollapseTimer();
+        }
+    }
+
+    private void OnShellPointerLeft()
+    {
+        if (!_isHoverExpanded || _isHandleDragging)
+        {
+            return;
+        }
+
+        StopHoverCollapseTimer();
+        _hoverCollapseTimer?.Start();
+    }
+
+    private void CollapseHoverShelfIfPointerOutside()
+    {
+        StopHoverCollapseTimer();
+        if (!_isHoverExpanded)
+        {
+            return;
+        }
+
+        if (_handleWindow?.IsMouseOver == true || _shelfWindow?.IsMouseOver == true)
+        {
+            return;
+        }
+
+        _isHoverExpanded = false;
+        if (_shelfViewModel is not null)
+        {
+            _shelfViewModel.IsShelfVisible = false;
+        }
+    }
+
+    private void StopHoverCollapseTimer()
+    {
+        _hoverCollapseTimer?.Stop();
     }
 
     private void DisposeTrayIcon()

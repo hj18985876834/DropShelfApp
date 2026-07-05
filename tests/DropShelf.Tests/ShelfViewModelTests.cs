@@ -203,6 +203,123 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void SetStatusMessage_UpdatesCardStatus()
+    {
+        var item = new ShelfItem
+        {
+            Type = ShelfItemType.File,
+            DisplayName = "large.bin",
+            SourcePath = @"C:\Temp\large.bin",
+        };
+        var viewModel = CreateViewModel(initialItems: [item]);
+
+        viewModel.Items[0].SetStatusMessage("Item is too large to drag out.");
+
+        Assert.AreEqual("Item is too large to drag out.", viewModel.Items[0].StatusMessage);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_UsesSourcePathAsPreviewForCommonImageFiles()
+    {
+        using var tempDirectory = new TempDirectory();
+        var imagePath = Path.Combine(tempDirectory.Path, "photo.webp");
+        File.WriteAllText(imagePath, "preview path only");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.File,
+                DisplayName = "photo.webp",
+                SourcePath = imagePath,
+            },
+        ]);
+
+        Assert.IsTrue(viewModel.Items[0].HasImagePreview);
+        Assert.AreEqual(imagePath, viewModel.Items[0].ImagePreviewPath);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_DoesNotUseSourcePathAsPreviewForNonImageFiles()
+    {
+        using var tempDirectory = new TempDirectory();
+        var textPath = Path.Combine(tempDirectory.Path, "notes.txt");
+        File.WriteAllText(textPath, "plain text");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.File,
+                DisplayName = "notes.txt",
+                SourcePath = textPath,
+            },
+        ]);
+
+        Assert.IsFalse(viewModel.Items[0].HasImagePreview);
+        Assert.IsNull(viewModel.Items[0].ImagePreviewPath);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_PrefersThumbnailForAppOwnedImageItem()
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.Image,
+                DisplayName = "image",
+                ImagePath = @"C:\Images\original.png",
+                ThumbnailPath = @"C:\Images\thumb.png",
+            },
+        ]);
+
+        Assert.IsTrue(viewModel.Items[0].HasImagePreview);
+        Assert.AreEqual(@"C:\Images\thumb.png", viewModel.Items[0].ImagePreviewPath);
+    }
+
+    [TestMethod]
+    [DataRow(ShelfItemType.Text, "full note content")]
+    [DataRow(ShelfItemType.Url, "https://example.com/path?q=1")]
+    public void ShelfItemViewModel_ExpandsTextContentItems(ShelfItemType type, string content)
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = type,
+                DisplayName = "Content",
+                Content = content,
+            },
+        ]);
+
+        Assert.IsTrue(viewModel.Items[0].IsTextContentItem);
+        Assert.IsTrue(viewModel.Items[0].HasExpandedContent);
+        Assert.AreEqual(content, viewModel.Items[0].ExpandedContent);
+    }
+
+    [TestMethod]
+    [DataRow(ShelfItemType.File)]
+    [DataRow(ShelfItemType.Folder)]
+    [DataRow(ShelfItemType.Image)]
+    public void ShelfItemViewModel_DoesNotExpandNonTextContentItems(ShelfItemType type)
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = type,
+                DisplayName = "Not text",
+                Content = "content should stay compact",
+                SourcePath = @"C:\Temp\source.txt",
+                ImagePath = @"C:\Images\image.png",
+            },
+        ]);
+
+        Assert.IsFalse(viewModel.Items[0].IsTextContentItem);
+        Assert.IsFalse(viewModel.Items[0].HasExpandedContent);
+        Assert.IsNull(viewModel.Items[0].ExpandedContent);
+    }
+
+    [TestMethod]
     public void Constructor_SelectsFirstInitialItem()
     {
         var first = new ShelfItem { DisplayName = "First", Type = ShelfItemType.Text, Content = "first" };

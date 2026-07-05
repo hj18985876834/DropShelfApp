@@ -28,6 +28,11 @@ Allow users to drag shelf items out to Explorer/Desktop while preserving the V1 
 * Drag payload for file/folder records should use the original `SourcePath`.
 * Preferred drag effect is copy.
 * Shelf should not remove record after drag-out.
+* All drag gestures started from DropShelf should include an internal drag marker
+  so dropping back onto DropShelf does not create duplicate shelf records.
+* When drag-out is blocked by size, show a non-blocking card status message as
+  soon as the drag threshold is crossed. Do not call WPF `DoDragDrop` for the
+  oversized item.
 
 ### Copy Semantics
 
@@ -35,6 +40,8 @@ Allow users to drag shelf items out to Explorer/Desktop while preserving the V1 
 * Do not implement move behavior in V1.
 * Do not delete original source after drag-out.
 * Do not delete shelf record after drag-out.
+* V1 drag-out size limit is 512 MB per item. Folder size is the recursive sum of
+  contained files.
 
 ### Target Compatibility
 
@@ -50,6 +57,7 @@ Secondary targets:
 ## UI States
 
 * Card drag started
+* Drag threshold crossed with size-limit feedback
 * Drag visual or cursor indicates copy if feasible
 * Drag canceled
 * Drag completed
@@ -62,8 +70,12 @@ No new shelf data fields required.
 
 * Source path missing before drag starts: drag should be disabled or show feedback.
 * Source inaccessible: drag should not crash.
+* Source size cannot be read: show feedback and do not start external drag/drop.
+* Source exceeds size limit: show feedback and do not start external drag/drop.
 * User drops into an unsupported target.
 * User cancels drag with Escape.
+* User drags a DropShelf card back into DropShelf: app should ignore the drop and
+  not create a duplicate record.
 * Multiple selected items are out of scope unless multi-select is added later.
 
 ## Acceptance Criteria
@@ -74,6 +86,9 @@ No new shelf data fields required.
 * Original source remains.
 * Shelf record remains.
 * Missing source cannot be dragged as if valid.
+* Oversized source shows a clear status message when the user attempts to drag
+  it out, and no external drag/drop operation starts.
+* Dragging a shelf card back onto DropShelf does not add a duplicate card.
 * `dotnet build`, `dotnet test`, and `dotnet format --verify-no-changes` pass.
 
 ## Tests
@@ -82,6 +97,8 @@ No new shelf data fields required.
 
 * Drag payload builder returns file drop data for valid source paths.
 * Missing source path returns disabled/invalid result.
+* Oversized file/folder returns an invalid result with a user-facing message.
+* Internal DropShelf drag payloads are ignored by drop-in creation logic.
 
 ### Manual Windows Tests
 
