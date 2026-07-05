@@ -35,6 +35,7 @@ public partial class App : System.Windows.Application
     private bool _isShuttingDown;
     private bool _isHandleDragging;
     private bool _isHoverExpanded;
+    private bool _isInternalShelfDragActive;
     private DispatcherTimer? _hoverCollapseTimer;
     private ShelfItem[]? _pendingShelfSaveSnapshot;
     private Task? _shelfSaveWorker;
@@ -118,7 +119,9 @@ public partial class App : System.Windows.Application
             imageStore,
             _settings,
             OnShellPointerEntered,
-            OnShellPointerLeft);
+            OnShellPointerLeft,
+            OnInternalShelfDragStarted,
+            OnInternalShelfDragEnded);
 
         _handleWindow = new HandleWindow(
             dockService,
@@ -465,7 +468,7 @@ public partial class App : System.Windows.Application
 
     private void OnShellPointerLeft()
     {
-        if (!_isHoverExpanded || _isHandleDragging)
+        if (!_isHoverExpanded || _isHandleDragging || _isInternalShelfDragActive)
         {
             return;
         }
@@ -477,7 +480,7 @@ public partial class App : System.Windows.Application
     private void CollapseHoverShelfIfPointerOutside()
     {
         StopHoverCollapseTimer();
-        if (!_isHoverExpanded)
+        if (!_isHoverExpanded || _isInternalShelfDragActive)
         {
             return;
         }
@@ -492,6 +495,29 @@ public partial class App : System.Windows.Application
         {
             _shelfViewModel.IsShelfVisible = false;
         }
+    }
+
+    private void OnInternalShelfDragStarted()
+    {
+        _isInternalShelfDragActive = true;
+        StopHoverCollapseTimer();
+    }
+
+    private void OnInternalShelfDragEnded()
+    {
+        _isInternalShelfDragActive = false;
+        if (!_isHoverExpanded)
+        {
+            return;
+        }
+
+        if (_handleWindow?.IsMouseOver == true || _shelfWindow?.IsMouseOver == true)
+        {
+            return;
+        }
+
+        StopHoverCollapseTimer();
+        _hoverCollapseTimer?.Start();
     }
 
     private void StopHoverCollapseTimer()

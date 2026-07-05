@@ -105,6 +105,8 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string PreviewText => GetPreviewText();
 
+    public string MetadataText => GetMetadataText();
+
     public bool IsFileSystemItem => Item.Type is ShelfItemType.File or ShelfItemType.Folder;
 
     public bool IsTextContentItem => Item.Type is ShelfItemType.Text or ShelfItemType.Url;
@@ -275,6 +277,90 @@ public sealed class ShelfItemViewModel : ObservableObject
         return Item.CreatedAt.LocalDateTime.ToString("g");
     }
 
+    private string GetMetadataText()
+    {
+        var detail = Item.Type switch
+        {
+            ShelfItemType.File => GetFileDetail(),
+            ShelfItemType.Folder => Exists ? "文件夹" : "已缺失",
+            ShelfItemType.Image => GetImageDetail(),
+            ShelfItemType.Text => GetTextDetail(),
+            ShelfItemType.Url => GetUrlDetail(),
+            _ => "项目",
+        };
+
+        return $"{TypeDisplayName} · {detail} · {Item.CreatedAt.LocalDateTime:MM-dd HH:mm}";
+    }
+
+    private string GetFileDetail()
+    {
+        if (string.IsNullOrWhiteSpace(SourcePath) || !Exists)
+        {
+            return "已缺失";
+        }
+
+        try
+        {
+            var fileInfo = new FileInfo(SourcePath);
+            return FormatBytes(fileInfo.Length);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return "大小未知";
+        }
+    }
+
+    private string GetImageDetail()
+    {
+        if (string.IsNullOrWhiteSpace(ActionPath) || !Exists)
+        {
+            return "已缺失";
+        }
+
+        try
+        {
+            var fileInfo = new FileInfo(ActionPath);
+            return FormatBytes(fileInfo.Length);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return "大小未知";
+        }
+    }
+
+    private string GetTextDetail()
+    {
+        var length = Item.Content?.Length ?? 0;
+        return length == 0 ? "空文本" : $"{length} 字符";
+    }
+
+    private string GetUrlDetail()
+    {
+        if (!Uri.TryCreate(Item.Content, UriKind.Absolute, out var uri) ||
+            string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return "链接";
+        }
+
+        return uri.Host;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = (double)Math.Max(0, bytes);
+        var unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{bytes} {units[unitIndex]}"
+            : $"{value:0.#} {units[unitIndex]}";
+    }
+
     private string? GetClipboardText()
     {
         if (!string.IsNullOrWhiteSpace(Item.Content))
@@ -337,6 +423,8 @@ public sealed class ShelfItemViewModel : ObservableObject
         OnPropertyChanged(nameof(CanCopy));
         OnPropertyChanged(nameof(ImagePreviewPath));
         OnPropertyChanged(nameof(HasImagePreview));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(MetadataText));
 
         if (OpenCommand is RelayCommand openCommand)
         {

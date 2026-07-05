@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -191,11 +192,27 @@ public sealed class DragDropService
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        if (item.Type is not (ShelfItemType.File or ShelfItemType.Folder or ShelfItemType.Image))
+        return item.Type switch
         {
-            return DragOutPayloadResult.Invalid("Only file, folder, and image items can be dragged out.");
-        }
+            ShelfItemType.File or ShelfItemType.Folder or ShelfItemType.Image => TryCreatePathDragOutPayload(item),
+            ShelfItemType.Text or ShelfItemType.Url => TryCreateTextDragOutPayload(item),
+            _ => DragOutPayloadResult.Invalid("Only file, folder, image, text, and URL items can be dragged out."),
+        };
+    }
 
+    public bool IsInternalDrag(WpfDataObject dataObject)
+    {
+        ArgumentNullException.ThrowIfNull(dataObject);
+        return HasNativeFormat(dataObject, InternalDragFormat);
+    }
+
+    private static bool HasNativeFormat(WpfDataObject dataObject, string format)
+    {
+        return dataObject.GetDataPresent(format, autoConvert: false);
+    }
+
+    private static DragOutPayloadResult TryCreatePathDragOutPayload(ShelfItem item)
+    {
         var dragOutPath = item.Type == ShelfItemType.Image
             ? item.ImagePath
             : item.SourcePath;
@@ -220,18 +237,24 @@ public sealed class DragDropService
             return DragOutPayloadResult.Invalid($"Item is too large to drag out. Limit is {FormatBytes(MaxDragOutBytes)}.");
         }
 
-        return DragOutPayloadResult.Valid(new DragOutPayload([dragOutPath], WpfDragDropEffects.Copy, sizeBytes, null));
+        return DragOutPayloadResult.Valid(DragOutPayload.ForFiles([dragOutPath], sizeBytes));
     }
 
-    public bool IsInternalDrag(WpfDataObject dataObject)
+    private static DragOutPayloadResult TryCreateTextDragOutPayload(ShelfItem item)
     {
-        ArgumentNullException.ThrowIfNull(dataObject);
-        return HasNativeFormat(dataObject, InternalDragFormat);
-    }
+        var text = item.Content;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return DragOutPayloadResult.Invalid("No content available for drag-out.");
+        }
 
-    private static bool HasNativeFormat(WpfDataObject dataObject, string format)
-    {
-        return dataObject.GetDataPresent(format, autoConvert: false);
+        var sizeBytes = Encoding.UTF8.GetByteCount(text);
+        if (sizeBytes > MaxDragOutBytes)
+        {
+            return DragOutPayloadResult.Invalid($"Item is too large to drag out. Limit is {FormatBytes(MaxDragOutBytes)}.");
+        }
+
+        return DragOutPayloadResult.Valid(DragOutPayload.ForText(text));
     }
 
     private static IEnumerable<string> GetDroppedPaths(WpfDataObject dataObject)
@@ -812,12 +835,19 @@ public sealed class DragDropService
 public sealed class DragOutPayload
 {
     private readonly string[] _paths;
+    private readonly string? _text;
 
-    public DragOutPayload(IEnumerable<string> paths, WpfDragDropEffects allowedEffects, long totalBytes, string? blockedMessage)
+    private DragOutPayload(
+        IEnumerable<string> paths,
+        string? text,
+        WpfDragDropEffects allowedEffects,
+        long totalBytes,
+        string? blockedMessage)
     {
         ArgumentNullException.ThrowIfNull(paths);
 
         _paths = paths.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
+        _text = text;
         AllowedEffects = allowedEffects;
         TotalBytes = totalBytes;
         BlockedMessage = blockedMessage;
@@ -831,11 +861,36 @@ public sealed class DragOutPayload
 
     public string? BlockedMessage { get; }
 
+    public bool HasText => !string.IsNullOrWhiteSpace(_text);
+
+    public string? Text => _text;
+
+    public static DragOutPayload ForFiles(IEnumerable<string> paths, long totalBytes)
+    {
+        return new DragOutPayload(paths, null, WpfDragDropEffects.Copy, totalBytes, null);
+    }
+
+    public static DragOutPayload ForText(string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        return new DragOutPayload([], text, WpfDragDropEffects.Copy, Encoding.UTF8.GetByteCount(text), null);
+    }
+
     public WpfDataObject CreateDataObject()
     {
         var dataObject = new WpfDataObjectImplementation();
         dataObject.SetData(DragDropService.InternalDragFormat, true);
-        dataObject.SetData(WpfDataFormats.FileDrop, _paths);
+        if (_paths.Length > 0)
+        {
+            dataObject.SetData(WpfDataFormats.FileDrop, _paths);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_text))
+        {
+            dataObject.SetData(WpfDataFormats.UnicodeText, _text);
+            dataObject.SetData(WpfDataFormats.Text, _text);
+        }
+
         return dataObject;
     }
 }

@@ -250,6 +250,12 @@
                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding PreviewText}" />
+                        <TextBlock Text="{Binding MetadataText}"
+                                   Margin="0,4,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding MetadataText}" />
                         <TextBlock Text="源文件缺失"
                                    Margin="0,4,0,0"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
@@ -446,23 +452,77 @@
                     </Border.Style>
 
                     <Grid>
-                        <StackPanel HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Width="240"
-                                    Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="&#xE8B6;"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="30"
-                                       Foreground="{DynamicResource DropShelfAccentBrush}"
-                                       TextAlignment="Center"
-                                       Margin="0,0,0,10" />
-                            <TextBlock Text="拖入文件、文本或图片"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource DropShelfTextBrush}"
-                                       TextAlignment="Center"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
+                        <Grid HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Margin="4"
+                              Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Width="250">
+                                <Border Width="52"
+                                        Height="52"
+                                        HorizontalAlignment="Center"
+                                        Background="{DynamicResource DropShelfSubtleBrush}"
+                                        BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <TextBlock Text="&#xE8B6;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="25"
+                                               Foreground="{DynamicResource DropShelfAccentBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="暂存架为空"
+                                           Margin="0,14,0,0"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DropShelfTextBrush}"
+                                           TextAlignment="Center" />
+                                <TextBlock Text="拖入文件、文本或图片，稍后再取用。"
+                                           Margin="0,6,0,0"
+                                           FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                           Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                <UniformGrid Columns="3"
+                                             Margin="0,16,0,0">
+                                    <Border Margin="3,0"
+                                            Padding="8,5"
+                                            Background="{DynamicResource DropShelfPanelBackground}"
+                                            BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="5">
+                                        <TextBlock Text="文件"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                                   TextAlignment="Center" />
+                                    </Border>
+                                    <Border Margin="3,0"
+                                            Padding="8,5"
+                                            Background="{DynamicResource DropShelfPanelBackground}"
+                                            BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="5">
+                                        <TextBlock Text="文本"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                                   TextAlignment="Center" />
+                                    </Border>
+                                    <Border Margin="3,0"
+                                            Padding="8,5"
+                                            Background="{DynamicResource DropShelfPanelBackground}"
+                                            BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="5">
+                                        <TextBlock Text="图片"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                                   TextAlignment="Center" />
+                                    </Border>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Grid>
 
                         <ListBox ItemsSource="{Binding Items}"
                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"

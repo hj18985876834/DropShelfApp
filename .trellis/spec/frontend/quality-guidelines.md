@@ -13,7 +13,13 @@ DropShelf is a WPF desktop utility. Quality checks must cover both C# correctnes
 ## Forbidden Patterns
 
 * Do not use broad `git add .` for task commits.
+* Do not proactively fix issues outside the current user-approved development
+  scope. If an unrelated build failure, dirty diff, historical bug, or broken
+  test blocks verification, report the blocker and wait for user direction.
 * Do not commit unrelated dirty files from another feature/session.
+* Do not run `git commit` proactively. Recommend a commit only after the user
+  has validated the executable and the intended commit scope is clear; commit
+  only after the user explicitly approves that commit.
 * Do not move or delete original user files from shelf clear/remove flows.
 * Do not add cloud sync, accounts, telemetry, or external APIs in V1.
 * Do not put persistence, registry, tray, or file-system side effects directly in Views.
@@ -82,8 +88,13 @@ dotnet publish .\src\DropShelf.App\DropShelf.App.csproj -c Release -r win-x64 --
 * Stage only the files directly related to the current task or bug fix.
 * Treat unrelated tracked or untracked files as another session's work unless
   the user says otherwise.
+* If verification exposes an unrelated failure, do not patch it as part of the
+  current task. State the exact command and failure, explain that it is outside
+  the current scope, and pause for user approval before touching those files.
 * Do not commit implementation changes until the user has manually validated the
   executable and explicitly approves the commit.
+* Before committing, provide the proposed commit scope and message. Run
+  `git commit` only after the user explicitly agrees to that proposal.
 * If two sessions need the same file, make the smallest possible edit and call
   out the overlap before committing.
 

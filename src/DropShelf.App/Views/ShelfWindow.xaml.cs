@@ -29,6 +29,8 @@ public partial class ShelfWindow : Window
     private readonly ShelfViewModel _viewModel;
     private readonly Action? _pointerEntered;
     private readonly Action? _pointerLeft;
+    private readonly Action? _internalDragStarted;
+    private readonly Action? _internalDragEnded;
     private readonly DispatcherTimer _dropFeedbackResetTimer;
     private Window? _handleWindow;
     private bool _allowClose;
@@ -45,7 +47,9 @@ public partial class ShelfWindow : Window
         ImageStore imageStore,
         AppSettings settings,
         Action? pointerEntered = null,
-        Action? pointerLeft = null)
+        Action? pointerLeft = null,
+        Action? internalDragStarted = null,
+        Action? internalDragEnded = null)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _dockService = dockService ?? throw new ArgumentNullException(nameof(dockService));
@@ -53,6 +57,8 @@ public partial class ShelfWindow : Window
         _imageStore = imageStore ?? throw new ArgumentNullException(nameof(imageStore));
         _pointerEntered = pointerEntered;
         _pointerLeft = pointerLeft;
+        _internalDragStarted = internalDragStarted;
+        _internalDragEnded = internalDragEnded;
         ArgumentNullException.ThrowIfNull(settings);
         _dockEdge = settings.DockEdge;
 
@@ -431,10 +437,18 @@ public partial class ShelfWindow : Window
 
         var payload = payloadResult.Payload;
         ReleaseMouseCapture(sender);
-        WpfDragDrop.DoDragDrop((DependencyObject)sender, payload.CreateDataObject(), payload.AllowedEffects);
-        itemViewModel.RefreshPathState();
-        _dragStartPoint = null;
-        ReleaseMouseCapture(sender);
+        _internalDragStarted?.Invoke();
+        try
+        {
+            WpfDragDrop.DoDragDrop((DependencyObject)sender, payload.CreateDataObject(), payload.AllowedEffects);
+        }
+        finally
+        {
+            _internalDragEnded?.Invoke();
+            itemViewModel.RefreshPathState();
+            _dragStartPoint = null;
+            ReleaseMouseCapture(sender);
+        }
 
         e.Handled = true;
     }

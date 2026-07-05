@@ -317,6 +317,85 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void ShelfItemViewModel_MetadataShowsFileSizeAndCreatedTime()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "report.txt");
+        File.WriteAllBytes(filePath, new byte[1536]);
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var createdAtText = createdAt.LocalDateTime.ToString("MM-dd HH:mm");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.File,
+                DisplayName = "report.txt",
+                SourcePath = filePath,
+                CreatedAt = createdAt,
+            },
+        ]);
+
+        Assert.AreEqual($"文件 · 1.5 KB · {createdAtText}", viewModel.Items[0].MetadataText);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_MetadataShowsMissingStateForMissingFile()
+    {
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var createdAtText = createdAt.LocalDateTime.ToString("MM-dd HH:mm");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.File,
+                DisplayName = "missing.txt",
+                SourcePath = @"C:\Temp\missing.txt",
+                CreatedAt = createdAt,
+            },
+        ]);
+
+        Assert.AreEqual($"文件 · 已缺失 · {createdAtText}", viewModel.Items[0].MetadataText);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_MetadataShowsTextLength()
+    {
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var createdAtText = createdAt.LocalDateTime.ToString("MM-dd HH:mm");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.Text,
+                DisplayName = "Note",
+                Content = "hello",
+                CreatedAt = createdAt,
+            },
+        ]);
+
+        Assert.AreEqual($"文本 · 5 字符 · {createdAtText}", viewModel.Items[0].MetadataText);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_MetadataShowsUrlHost()
+    {
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var createdAtText = createdAt.LocalDateTime.ToString("MM-dd HH:mm");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.Url,
+                DisplayName = "Example",
+                Content = "https://example.com/path",
+                CreatedAt = createdAt,
+            },
+        ]);
+
+        Assert.AreEqual($"链接 · example.com · {createdAtText}", viewModel.Items[0].MetadataText);
+    }
+
+    [TestMethod]
     [DataRow(ShelfItemType.File)]
     [DataRow(ShelfItemType.Folder)]
     [DataRow(ShelfItemType.Image)]

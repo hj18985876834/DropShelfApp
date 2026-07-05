@@ -105,6 +105,10 @@ screen coordinates, DPI scaling, and hover events can all affect hit testing.
 * Hover collapse uses a short timer and confirms the pointer is outside both
   `HandleWindow` and `ShelfWindow`.
 * External `DragOver` expansion must be idempotent show behavior, never toggle.
+* Internal shelf-card drag-out pauses hover-collapse timers until
+  `DragDrop.DoDragDrop` returns. Keep `InternalDragFormat` drop rejection
+  unchanged, but do not collapse the shelf while the user is still dragging a
+  card out of the app.
 
 #### 4. Validation & Error Matrix
 
@@ -116,6 +120,9 @@ screen coordinates, DPI scaling, and hover events can all affect hit testing.
 * Pointer moves from handle to panel -> keep hover-expanded panel open.
 * Pointer leaves both handle and panel -> delayed collapse only if the panel was
   hover-expanded.
+* Pointer leaves both handle and panel during internal shelf-card drag-out ->
+  keep the panel visible until the drag operation ends, then resume the normal
+  delayed collapse check.
 * Pointer reaches a corner -> allow ratios `0` or `1`; do not add artificial
   safe margins.
 

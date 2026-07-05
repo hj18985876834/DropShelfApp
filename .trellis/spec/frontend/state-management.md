@@ -233,9 +233,10 @@ cleared, or persisted.
 * `ShelfItemViewModel.RemoveCommand` removes the record only.
 * `ShelfViewModel.ClearAllCommand` clears shelf records only.
 * `DragDropService.TryCreateDragOutPayload(ShelfItem)` returns a
-  `DragOutPayloadResult` with either a WPF file-drop payload or a user-facing
-  refusal message.
-* `DragDropService.MaxDragOutBytes` is the V1 per-item drag-out limit.
+  `DragOutPayloadResult` with either a WPF drag payload or a user-facing refusal
+  message.
+* `DragDropService.MaxDragOutBytes` is the V1 per-item drag-out limit for file,
+  folder, image, text, and URL records.
 * `DragDropService.InternalDragFormat` marks drags started from DropShelf.
 
 ### 3. Contracts
@@ -245,15 +246,21 @@ cleared, or persisted.
 * `SourcePath` is the absolute original path.
 * `DisplayName` defaults to the file or folder name.
 * File/folder items never copy bytes into app data.
-* Drag-out uses standard `DataFormats.FileDrop` with `DragDropEffects.Copy`.
-  File/folder items drag out `SourcePath`; app-owned image items drag out
+* Drag-out uses `DragDropEffects.Copy`.
+* File/folder drag-out uses standard `DataFormats.FileDrop` with `SourcePath`.
+* App-owned image drag-out uses standard `DataFormats.FileDrop` with
   `ImagePath`.
+* Text drag-out uses `DataFormats.UnicodeText` and `DataFormats.Text` with
+  `Content`.
+* URL drag-out uses the same text formats as text records. Do not add
+  `UniformResourceLocatorW` in V1 because some chat/input controls treat URL
+  drag formats as non-text objects and reject insertion.
 * Every drag started from DropShelf carries `InternalDragFormat`.
 * Drop-in creation must ignore any data object carrying `InternalDragFormat`,
   even if it also contains `FileDrop`, so dragging a shelf card back into the
   app cannot duplicate records.
-* Drag-out is allowed only when the source path or image path still exists and
-  its size can be read.
+* Drag-out is allowed only when the source path, image path, or text/url content
+  exists and its size can be read or computed.
 * V1 drag-out refuses files or recursively measured folders larger than
   `DragDropService.MaxDragOutBytes` at the point where the drag threshold is
   crossed. Show the result message on the card and do not call WPF
@@ -274,8 +281,12 @@ cleared, or persisted.
 * Path exists and size <= `MaxDragOutBytes` -> drag-out payload can be created.
 * Image item has existing `imagePath` and size <= `MaxDragOutBytes` -> drag-out
   payload uses that cached PNG path.
+* Text or URL content UTF-8 byte count <= `MaxDragOutBytes` -> drag-out payload
+  uses standard text formats.
 * Path exists but size > `MaxDragOutBytes` -> no external drag/drop starts; card
   status says the item is too large.
+* Text or URL content byte count > `MaxDragOutBytes` -> no external drag/drop
+  starts; card status says the item is too large.
 * Path size cannot be read -> no external drag/drop starts; card status says
   size cannot be read.
 * Internal DropShelf drag is dropped back into DropShelf -> no records are
@@ -309,10 +320,14 @@ Use temporary directories/files.
 * Assert drag-out payload reports `Copy` for valid file/folder paths.
 * Assert drag-out payload reports `Copy` and `FileDrop` for valid app-owned
   image paths.
+* Assert drag-out payload reports `Copy` and standard text formats for text
+  records.
+* Assert URL drag-out includes standard text formats and does not include
+  `UniformResourceLocatorW`.
 * Assert oversized file/folder returns an invalid result with a user-facing
   status message.
-* Assert missing or inaccessible source/image path returns an invalid drag-out
-  result.
+* Assert missing or inaccessible source/image path, or missing text content,
+  returns an invalid drag-out result.
 * Assert internal drag data is ignored by drop-in creation.
 
 ### 7. Wrong vs Correct

@@ -354,6 +354,47 @@ public sealed class DragDropServiceTests
     }
 
     [TestMethod]
+    public void CreateDragOutPayload_ReturnsTextPayloadForTextItem()
+    {
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Text,
+            DisplayName = "note",
+            Content = "hello world",
+        });
+
+        Assert.IsNotNull(payload);
+        Assert.IsTrue(payload.HasText);
+        Assert.AreEqual("hello world", payload.Text);
+        Assert.AreEqual(11, payload.TotalBytes);
+        var dataObject = payload.CreateDataObject();
+        Assert.IsTrue(dataObject.GetDataPresent(DragDropService.InternalDragFormat));
+        Assert.IsTrue(dataObject.GetDataPresent(DataFormats.UnicodeText));
+        Assert.AreEqual("hello world", dataObject.GetData(DataFormats.UnicodeText));
+        Assert.IsFalse(dataObject.GetDataPresent(DataFormats.FileDrop));
+    }
+
+    [TestMethod]
+    public void CreateDragOutPayload_ReturnsTextOnlyPayloadForUrlItem()
+    {
+        var service = new DragDropService();
+
+        var payload = service.CreateDragOutPayload(new ShelfItem
+        {
+            Type = ShelfItemType.Url,
+            DisplayName = "example.com",
+            Content = "https://example.com/path",
+        });
+
+        Assert.IsNotNull(payload);
+        var dataObject = payload.CreateDataObject();
+        Assert.AreEqual("https://example.com/path", dataObject.GetData(DataFormats.UnicodeText));
+        Assert.IsFalse(dataObject.GetDataPresent("UniformResourceLocatorW"));
+    }
+
+    [TestMethod]
     public void TryCreateDragOutPayload_ReturnsMessageForOversizedFile()
     {
         using var tempDirectory = new TempDirectory();
@@ -492,7 +533,7 @@ public sealed class DragDropServiceTests
             Content = "hello",
         });
 
-        Assert.IsNull(payload);
+        Assert.IsNotNull(payload);
     }
 
     private static BitmapSource CreateBitmap(int width, int height)
