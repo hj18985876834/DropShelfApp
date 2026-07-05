@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private StartupService? _startupService;
     private ThemeService? _themeService;
     private TrayIconService? _trayIconService;
+    private bool _isShuttingDown;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -97,7 +98,7 @@ public partial class App : System.Windows.Application
             _settingsStore.SaveAsync(_settings).GetAwaiter().GetResult();
         }
 
-        _trayIconService?.Dispose();
+        DisposeTrayIcon();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);
     }
@@ -126,10 +127,17 @@ public partial class App : System.Windows.Application
 
     private void ShutdownApplication()
     {
+        if (_isShuttingDown)
+        {
+            return;
+        }
+
+        _isShuttingDown = true;
+        DisposeTrayIcon();
         _settingsWindow?.Close();
-        _trayIconService?.Dispose();
         _shelfWindow?.ForceClose();
         Shutdown();
+        Dispatcher.InvokeShutdown();
     }
 
     private void ApplySettings(AppSettings settings)
@@ -137,6 +145,12 @@ public partial class App : System.Windows.Application
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _themeService?.Apply(this, _settings);
         _shelfWindow?.ApplySettings(_settings);
+    }
+
+    private void DisposeTrayIcon()
+    {
+        _trayIconService?.Dispose();
+        _trayIconService = null;
     }
 }
 
