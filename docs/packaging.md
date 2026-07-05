@@ -1,6 +1,8 @@
-# DropShelf Packaging
+# DropShelf Packaging and Release
 
 DropShelf ships as a traditional Inno Setup installer for current-user Windows installs.
+
+This document is the source of truth for local packaging, installer behavior, GitHub Release publishing, and the manual update manifest.
 
 ## Prerequisites
 
@@ -19,7 +21,19 @@ src\DropShelf.App\Assets\DropShelf.ico
 
 The app executable, tray icon, installer icon, Start Menu shortcut, desktop shortcut, and uninstall entry all use this icon.
 
-The installer version and application assembly metadata should stay aligned at `0.1.0` until the release process changes it.
+The installer version, application assembly metadata, release tag, and update manifest version must stay aligned.
+
+For the current baseline release:
+
+```text
+Version: 0.1.0
+Release tag: v0.1.0
+Main branch commit: f40440a
+Installer size: 51089185 bytes
+Installer SHA256: 5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055
+Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.0
+Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe
+```
 
 ## Quality Gate
 
@@ -32,6 +46,16 @@ dotnet format .\DropShelf.sln --verify-no-changes --verbosity minimal
 ```
 
 Do not package if any command fails.
+
+## Clean Generated Output
+
+Before a formal package build, remove old local outputs so the final installer is known to come from the current source tree:
+
+```bash
+rm -rf artifacts installer/Output
+```
+
+`artifacts/` and `installer/Output/` are generated outputs and must not be committed.
 
 ## Publish
 
@@ -60,6 +84,15 @@ The installer output is:
 ```text
 installer\Output\DropShelfSetup.exe
 ```
+
+After compilation, record the installer size and SHA256:
+
+```bash
+sha256sum installer/Output/DropShelfSetup.exe
+stat -c '%s %n' installer/Output/DropShelfSetup.exe
+```
+
+The SHA256 value must be copied into `updates/latest.json` before publishing a release that clients can download.
 
 ## Install Behavior
 
@@ -93,11 +126,110 @@ User data is intentionally preserved:
 
 Do not add uninstall rules that delete this directory unless the product requirements change.
 
+## Manual Update Contract
+
+DropShelf uses a manual GitHub-based update flow. The app does not silently update in the background.
+
+The app fetches this manifest from the `main` branch:
+
+```text
+https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest.json
+```
+
+`updates/latest.json` must contain:
+
+```json
+{
+  "version": "0.1.0",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe",
+  "sha256": "5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055",
+  "sizeBytes": 51089185,
+  "releaseDate": "2026-07-05",
+  "mandatory": false,
+  "releaseNotes": {
+    "zh-CN": "初始版本。",
+    "en-US": "Initial release."
+  }
+}
+```
+
+Manifest rules:
+
+* `version` is the semantic app version without the `v` prefix.
+* `installerUrl` must point to the GitHub Release asset, not a commit page, branch page, or raw repository file.
+* `sha256` must match the uploaded `DropShelfSetup.exe` exactly.
+* `sizeBytes` must match the uploaded asset exactly.
+* `releaseNotes` must include both `zh-CN` and `en-US`.
+* If GitHub is unreachable, the app should show a check-update failure message and make no local changes.
+
+The app compares the local application version against the manifest version. If the manifest version is newer, it downloads the installer to:
+
+```text
+%LOCALAPPDATA%\DropShelf\updates\<version>\DropShelfSetup.exe
+```
+
+The downloaded file is launched only after SHA256 verification succeeds.
+
+## GitHub Release Procedure
+
+Use `main` as the maintained source branch. Use semantic version tags for releases.
+
+For each release:
+
+1. Update app and installer version metadata.
+2. Run the quality gate.
+3. Clean generated output.
+4. Publish the self-contained `win-x64` app.
+5. Build `installer\Output\DropShelfSetup.exe`.
+6. Compute installer size and SHA256.
+7. Update `updates/latest.json` with the new version, asset URL, SHA256, size, release date, and bilingual notes.
+8. Commit and push all source, installer script, docs, and manifest changes to `main`.
+9. Create a GitHub Release with tag `v<version>` targeting the latest `main` commit.
+10. Upload the exact `DropShelfSetup.exe` that was hashed.
+11. Verify the GitHub Release asset size and SHA256 match `updates/latest.json`.
+12. Verify the raw manifest URL returns the committed manifest.
+
+Correct release URLs use this shape:
+
+```text
+https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.0
+https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe
+```
+
+Do not use these as release asset URLs:
+
+```text
+https://github.com/hj18985876834/DropShelfApp/commits/v0.1.0
+https://github.com/hj18985876834/DropShelfApp/releases/tag/main
+https://github.com/hj18985876834/DropShelfApp/releases/download/main/DropShelfSetup.exe
+```
+
+`main` is a branch name. Do not create or keep a `main` tag for releases.
+
 ## Release Notes
 
 DropShelf is a bilingual app in V1. Keep English and Chinese runtime resources when optimizing the publish output.
 
 The Release publish is configured to omit app debug symbols from the installer payload. Keep local build artifacts and installer output out of source control.
+
+## Supported and Unsupported Scenarios
+
+Supported:
+
+* Windows x64 current-user install.
+* Installing on another Windows x64 computer without preinstalling the .NET runtime.
+* English and Simplified Chinese setup UI.
+* Bilingual app UI.
+* Manual update check and installer download through GitHub Release assets.
+* Fixed install directory at `%LOCALAPPDATA%\Programs\DropShelf`.
+
+Not supported in V1:
+
+* Custom install directory selection.
+* Machine-wide install under `Program Files`.
+* Silent background updates.
+* Automatic update installation without user action.
+* Deleting user data during uninstall.
 
 ## Manual Smoke Test
 
@@ -113,3 +245,16 @@ After building `DropShelfSetup.exe`, validate on Windows:
 8. Confirm `%LOCALAPPDATA%\Programs\DropShelf` is removed.
 9. Confirm `%LOCALAPPDATA%\DropShelf` remains.
 10. Reinstall and confirm DropShelf launches successfully.
+
+## Release Verification Checklist
+
+Before telling users to install a release, verify:
+
+1. `git ls-remote --heads origin main` points to the intended release commit.
+2. `git ls-remote --tags origin "v<version>"` points to the same intended commit.
+3. The GitHub Release page is `/releases/tag/v<version>`.
+4. The Release asset is named `DropShelfSetup.exe`.
+5. The Release asset size equals `updates/latest.json` `sizeBytes`.
+6. The Release asset SHA256 equals `updates/latest.json` `sha256`.
+7. The manifest `installerUrl` uses `/releases/download/v<version>/DropShelfSetup.exe`.
+8. App check-update reports "latest" when local version equals manifest version.

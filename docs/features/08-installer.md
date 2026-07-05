@@ -6,7 +6,7 @@ Package DropShelf as a traditional Windows installer for current-user installati
 
 ## Branch
 
-`feature/installer`
+Initial implementation used `feature/installer`. Ongoing release maintenance uses `main`.
 
 ## Dependencies
 
@@ -25,6 +25,12 @@ Package DropShelf as a traditional Windows installer for current-user installati
 8. User can uninstall from Windows.
 
 ## Detailed Behavior
+
+The full packaging and release procedure is maintained in:
+
+```text
+docs/packaging.md
+```
 
 ### Publish
 
@@ -57,15 +63,23 @@ installer/Output/DropShelfSetup.exe
 ```text
 %LOCALAPPDATA%/Programs/DropShelf/
 ```
+* Custom install directory selection is not supported in V1.
 
 ### Shortcuts
 
 * Start Menu shortcut required.
 * Desktop shortcut optional and unchecked by default.
 
+### Languages
+
+* App UI supports Chinese and English.
+* Installer UI supports English and Simplified Chinese.
+* Release publish must preserve Chinese runtime resources.
+
 ### Uninstall
 
 * Removes installed app files.
+* Removes the DropShelf HKCU startup Run value.
 * Leaves `%LOCALAPPDATA%/DropShelf/` user data by default.
 * Does not remove unrelated files.
 
@@ -86,6 +100,40 @@ Installer variables should align with:
 * app name: `DropShelf`
 * version: `0.1.0` until release process changes it
 * executable: `DropShelf.App.exe`
+* release tag: `v<version>`, for example `v0.1.0`
+
+### Manual Update Manifest
+
+DropShelf uses a manual GitHub-based update flow. The app checks:
+
+```text
+https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest.json
+```
+
+The manifest must point to a GitHub Release asset:
+
+```text
+https://github.com/hj18985876834/DropShelfApp/releases/download/v<version>/DropShelfSetup.exe
+```
+
+The manifest must include the semantic version, installer URL, SHA256, byte size, release date, mandatory flag, and bilingual release notes.
+
+For `0.1.0`, the baseline release metadata is:
+
+```text
+Release tag: v0.1.0
+Installer: DropShelfSetup.exe
+Size: 51089185 bytes
+SHA256: 5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055
+```
+
+The app downloads newer installers to:
+
+```text
+%LOCALAPPDATA%/DropShelf/updates/<version>/DropShelfSetup.exe
+```
+
+The downloaded installer must pass SHA256 verification before launch.
 
 ## Edge Cases
 
@@ -95,6 +143,10 @@ Installer variables should align with:
 * Install path contains spaces.
 * Unsigned installer warning.
 * Publish directory missing.
+* GitHub or raw manifest URL unreachable.
+* Release asset URL does not match the manifest.
+* Downloaded installer hash mismatch.
+* A release tag named `main` exists and conflicts with the `main` branch.
 
 ## Acceptance Criteria
 
@@ -106,9 +158,13 @@ Installer variables should align with:
 * Optional desktop shortcut works when selected.
 * Uninstaller is registered.
 * Uninstall removes app files.
+* Uninstall removes the DropShelf HKCU startup Run value.
 * User data under `%LOCALAPPDATA%/DropShelf/` remains.
 * Reinstall can launch app.
 * `dotnet build`, `dotnet test`, and `dotnet format --verify-no-changes` pass before packaging.
+* GitHub Release tag uses `v<version>`, not `main`.
+* Release asset size and SHA256 match `updates/latest.json`.
+* Manual update check reports latest when local version equals manifest version.
 
 ## Tests
 
@@ -116,6 +172,7 @@ Installer variables should align with:
 
 * Validate publish command exits successfully.
 * Validate Inno compiler exits successfully.
+* Validate installer SHA256 and size after build.
 
 ### Manual Windows Tests
 
@@ -125,19 +182,22 @@ Installer variables should align with:
 * Uninstall from Windows Apps settings or uninstaller.
 * Reinstall after uninstall.
 * Verify no admin prompt in normal flow.
+* Verify manual update check behavior.
 
 ## Files Likely Touched
 
 * `installer/DropShelf.iss`
 * `docs/packaging.md`
+* `updates/latest.json`
 * `src/DropShelf.App/DropShelf.App.csproj`
 * release scripts if added later
 
 ## Out Of Scope
 
 * Code signing.
-* Auto-update.
+* Silent background auto-update.
 * MSIX.
 * Microsoft Store.
 * Per-machine install.
+* Custom install directory selection.
 * Removing user data during uninstall.
