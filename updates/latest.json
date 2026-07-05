@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/DropShelfSetup.exe",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "sizeBytes": 0,
+  "releaseDate": "2026-07-05",
+  "mandatory": false,
+  "releaseNotes": {
+    "zh-CN": "初始版本。",
+    "en-US": "Initial release."
+  }
+}
