@@ -1,5 +1,7 @@
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
 using System.Windows.Input;
 using DropShelf.App.Commands;
 using DropShelf.App.Models;
@@ -13,13 +15,19 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly LocalizationService _localizationService;
     private readonly SettingsStore? _settingsStore;
     private readonly StartupService? _startupService;
+    private readonly UpdateService? _updateService;
+    private readonly Action? _shutdownApplication;
     private AppSettings _lastAppliedSettings;
+    private UpdateManifest? _availableUpdate;
     private DensityMode _densityMode;
     private DockEdge _dockEdge;
     private double _dockOffsetRatio;
     private bool _hasStatus;
     private bool _isApplying;
+    private bool _isCheckingForUpdate;
     private bool _isStatusError;
+    private bool _isUpdateAvailable;
+    private bool _isUpdating;
     private LanguageMode _languageMode;
     private bool _startWithWindows;
     private string _statusMessage = string.Empty;
@@ -40,12 +48,25 @@ public sealed class SettingsViewModel : ObservableObject
         SettingsStore? settingsStore,
         StartupService? startupService,
         Action<AppSettings>? applySettings)
+        : this(settings, settingsStore, startupService, null, null, applySettings)
+    {
+    }
+
+    public SettingsViewModel(
+        AppSettings settings,
+        SettingsStore? settingsStore,
+        StartupService? startupService,
+        UpdateService? updateService,
+        Action? shutdownApplication,
+        Action<AppSettings>? applySettings)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         _localizationService = new LocalizationService(settings.LanguageMode);
         _settingsStore = settingsStore;
         _startupService = startupService;
+        _updateService = updateService;
+        _shutdownApplication = shutdownApplication;
         _applySettings = applySettings;
         _lastAppliedSettings = settings;
         _dockEdge = settings.DockEdge;
@@ -56,6 +77,8 @@ public sealed class SettingsViewModel : ObservableObject
         _startWithWindows = settings.StartWithWindows;
 
         ApplyCommand = new AsyncRelayCommand(_ => SaveAndApplyAsync(SavedMessage));
+        CheckForUpdatesCommand = new AsyncRelayCommand(_ => CheckForUpdatesAsync(), _ => _updateService is not null);
+        DownloadUpdateCommand = new AsyncRelayCommand(_ => DownloadAndInstallUpdateAsync(), _ => _updateService is not null && IsUpdateAvailable && _availableUpdate is not null);
         ResetDockPositionCommand = new RelayCommand(_ => ResetDockPosition());
     }
 
@@ -96,6 +119,12 @@ public sealed class SettingsViewModel : ObservableObject
     public string UsageLabel => Text.UsageLabel;
 
     public string VersionLabel => Text.VersionLabel;
+
+    public string UpdatesTitle => Text.UpdatesTitle;
+
+    public string CheckForUpdatesText => Text.CheckForUpdatesText;
+
+    public string DownloadUpdateText => Text.DownloadUpdateText;
 
     public string DeveloperLabel => Text.DeveloperLabel;
 
@@ -195,7 +224,36 @@ public sealed class SettingsViewModel : ObservableObject
         private set => SetProperty(ref _isApplying, value);
     }
 
+    public bool IsCheckingForUpdate
+    {
+        get => _isCheckingForUpdate;
+        private set => SetProperty(ref _isCheckingForUpdate, value);
+    }
+
+    public bool IsUpdating
+    {
+        get => _isUpdating;
+        private set => SetProperty(ref _isUpdating, value);
+    }
+
+    public bool IsUpdateAvailable
+    {
+        get => _isUpdateAvailable;
+        private set
+        {
+            if (SetProperty(ref _isUpdateAvailable, value) &&
+                DownloadUpdateCommand is AsyncRelayCommand downloadUpdateCommand)
+            {
+                downloadUpdateCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     public ICommand ApplyCommand { get; }
+
+    public ICommand CheckForUpdatesCommand { get; }
+
+    public ICommand DownloadUpdateCommand { get; }
 
     public ICommand ResetDockPositionCommand { get; }
 
@@ -249,6 +307,84 @@ public sealed class SettingsViewModel : ObservableObject
             IsApplying = false;
         }
     }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateService is null)
+        {
+            SetStatus(UpdateFailedMessage, isError: true);
+            return;
+        }
+
+        try
+        {
+            IsCheckingForUpdate = true;
+            IsUpdateAvailable = false;
+            _availableUpdate = null;
+            SetStatus(Text.CheckingForUpdates, isError: false);
+
+            var result = await _updateService.CheckForUpdatesAsync(Version);
+            if (!result.IsUpdateAvailable)
+            {
+                SetStatus(Text.NoUpdateAvailable, isError: false);
+                return;
+            }
+
+            _availableUpdate = result.Manifest;
+            IsUpdateAvailable = true;
+            var message = string.Format(System.Globalization.CultureInfo.CurrentCulture, Text.UpdateAvailableFormat, result.Manifest.Version);
+            var notes = result.Manifest.ReleaseNotesFor(_localizationService.IsChinese);
+            if (!string.IsNullOrWhiteSpace(notes))
+            {
+                message = $"{message} {notes}";
+            }
+
+            SetStatus(message, isError: false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or JsonException or FormatException or IOException or TaskCanceledException)
+        {
+            IsUpdateAvailable = false;
+            _availableUpdate = null;
+            SetStatus(UpdateFailedMessage, isError: true);
+        }
+        finally
+        {
+            IsCheckingForUpdate = false;
+        }
+    }
+
+    private async Task DownloadAndInstallUpdateAsync()
+    {
+        if (_updateService is null || _availableUpdate is null)
+        {
+            SetStatus(UpdateFailedMessage, isError: true);
+            return;
+        }
+
+        try
+        {
+            IsUpdating = true;
+            SetStatus(Text.DownloadingUpdate, isError: false);
+            var progress = new Progress<double>(value =>
+            {
+                var percent = Math.Clamp((int)Math.Round(value * 100), 0, 100);
+                SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Text.DownloadProgressFormat, percent), isError: false);
+            });
+
+            var installerPath = await _updateService.DownloadInstallerAsync(_availableUpdate, progress);
+            _updateService.LaunchInstaller(installerPath);
+            _shutdownApplication?.Invoke();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or TaskCanceledException)
+        {
+            SetStatus(UpdateFailedMessage, isError: true);
+        }
+        finally
+        {
+            IsUpdating = false;
+        }
+    }
+
 
     private AppSettings CreateSettings()
     {
@@ -321,6 +457,8 @@ public sealed class SettingsViewModel : ObservableObject
 
     private string SaveErrorMessage => Text.SettingsSaveFailed;
 
+    private string UpdateFailedMessage => Text.UpdateFailed;
+
     private void RaiseLocalizedTextChanged()
     {
         OnPropertyChanged(nameof(WindowTitle));
@@ -337,6 +475,9 @@ public sealed class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IntroductionLabel));
         OnPropertyChanged(nameof(UsageLabel));
         OnPropertyChanged(nameof(VersionLabel));
+        OnPropertyChanged(nameof(UpdatesTitle));
+        OnPropertyChanged(nameof(CheckForUpdatesText));
+        OnPropertyChanged(nameof(DownloadUpdateText));
         OnPropertyChanged(nameof(DeveloperLabel));
         OnPropertyChanged(nameof(ContactLabel));
         OnPropertyChanged(nameof(ApplyText));

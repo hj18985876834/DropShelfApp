@@ -11,14 +11,20 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
+DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=DropShelfSetup
+SetupIconFile=..\src\DropShelf.App\Assets\DropShelf.ico
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64
+ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64
+AppMutex=DropShelf.AppShell
+CloseApplications=yes
+RestartApplications=no
+UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -29,6 +35,9 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#MyAppName}"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent

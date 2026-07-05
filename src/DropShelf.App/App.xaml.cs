@@ -32,6 +32,7 @@ public partial class App : System.Windows.Application
     private StartupService? _startupService;
     private ThemeService? _themeService;
     private LocalizationService? _localizationService;
+    private UpdateService? _updateService;
     private TrayIconService? _trayIconService;
     private bool _isShuttingDown;
     private bool _isHandleDragging;
@@ -75,6 +76,7 @@ public partial class App : System.Windows.Application
         _shelfStore = new ShelfStore(appDataRoot);
         _startupService = new StartupService();
         _themeService = new ThemeService();
+        _updateService = new UpdateService(appDataRoot);
 
         _settings = _settingsStore.LoadAsync().GetAwaiter().GetResult();
         _settings = new AppSettings
@@ -286,6 +288,8 @@ public partial class App : System.Windows.Application
                 _settings,
                 _settingsStore,
                 _startupService,
+                _updateService,
+                ShutdownApplication,
                 ApplySettings),
         };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;

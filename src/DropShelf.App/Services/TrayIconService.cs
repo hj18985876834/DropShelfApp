@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.IO;
 using Forms = System.Windows.Forms;
 
 namespace DropShelf.App.Services;
@@ -11,6 +12,7 @@ public sealed class TrayIconService : IDisposable
     private readonly Forms.ToolStripMenuItem _hideShelfItem;
     private readonly Forms.ToolStripMenuItem _settingsItem;
     private readonly Forms.ToolStripMenuItem _quitItem;
+    private readonly Icon? _appIcon;
     private bool _disposed;
 
     public TrayIconService(
@@ -39,10 +41,11 @@ public sealed class TrayIconService : IDisposable
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add(_quitItem);
 
+        _appIcon = LoadAppIcon();
         _notifyIcon = new Forms.NotifyIcon
         {
             ContextMenuStrip = _menu,
-            Icon = SystemIcons.Application,
+            Icon = _appIcon ?? SystemIcons.Application,
             Text = "DropShelf",
             Visible = true,
         };
@@ -70,6 +73,14 @@ public sealed class TrayIconService : IDisposable
         _quitItem.Text = texts.TrayQuit;
     }
 
+    private static Icon? LoadAppIcon()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "DropShelf.ico");
+        return File.Exists(iconPath)
+            ? new Icon(iconPath)
+            : null;
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -80,6 +91,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.ContextMenuStrip = null;
         _notifyIcon.Dispose();
+        _appIcon?.Dispose();
         _menu.Dispose();
         _disposed = true;
     }

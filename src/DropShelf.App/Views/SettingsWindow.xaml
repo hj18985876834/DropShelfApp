@@ -242,6 +242,22 @@
                             </StackPanel>
                         </Grid>
 
+                        <StackPanel Style="{StaticResource InfoRowStyle}">
+                            <TextBlock Text="{Binding UpdatesTitle}" Style="{StaticResource FieldLabelStyle}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="{Binding CheckForUpdatesText}"
+                                        Command="{Binding CheckForUpdatesCommand}"
+                                        Style="{StaticResource SettingsButtonStyle}"
+                                        MinWidth="120"
+                                        Margin="0,0,8,0" />
+                                <Button Content="{Binding DownloadUpdateText}"
+                                        Command="{Binding DownloadUpdateCommand}"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        MinWidth="120"
+                                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </StackPanel>
+
                         <StackPanel>
                             <TextBlock Text="{Binding ContactLabel}" Style="{StaticResource FieldLabelStyle}" />
                             <TextBlock Text="{Binding Contact}" Style="{StaticResource InfoTextStyle}" />
