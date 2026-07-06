@@ -42,6 +42,7 @@ public partial class ShelfWindow : Window
     private bool _isCardContextMenuOpen;
     private bool _isPanelVisible;
     private ScrollViewer? _shelfItemsScrollViewer;
+    private bool _suppressCardClickToggle;
     private bool _wasExpandedByDrag;
 
     public ShelfWindow(
@@ -438,6 +439,7 @@ public partial class ShelfWindow : Window
             return;
         }
 
+        _suppressCardClickToggle = true;
         var payloadResult = _dragDropService.TryCreateDragOutPayload(itemViewModel.Item);
         if (!payloadResult.CanStartDrag || payloadResult.Payload is null)
         {
@@ -486,6 +488,7 @@ public partial class ShelfWindow : Window
         }
 
         _dragStartPoint = e.GetPosition(this);
+        _suppressCardClickToggle = false;
         if (sender is UIElement element)
         {
             element.CaptureMouse();
@@ -494,7 +497,16 @@ public partial class ShelfWindow : Window
 
     private void ShelfItem_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (!_suppressCardClickToggle &&
+            sender is FrameworkElement { DataContext: ShelfItemViewModel itemViewModel })
+        {
+            _viewModel.SelectedItem = itemViewModel;
+            itemViewModel.ToggleExpanded();
+            e.Handled = true;
+        }
+
         _dragStartPoint = null;
+        _suppressCardClickToggle = false;
         ReleaseMouseCapture(sender);
     }
 

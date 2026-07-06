@@ -32,6 +32,7 @@ public sealed class ShelfItemViewModel : ObservableObject
     private readonly IFileActionService _fileActionService;
     private readonly LocalizationService _localizationService;
     private readonly Action<ShelfItemViewModel> _remove;
+    private bool _isExpanded;
     private string? _statusMessage;
 
     public ShelfItemViewModel(
@@ -103,17 +104,34 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string PreviewText => GetPreviewText();
 
+    public string? PreviewTextTooltip => IsTextContentItem ? null : PreviewText;
+
     public string MetadataText => GetMetadataText();
 
     public bool IsFileSystemItem => Item.Type is ShelfItemType.File or ShelfItemType.Folder;
 
-    public bool IsTextContentItem => Item.Type is ShelfItemType.Text or ShelfItemType.Url;
+    public bool IsTextContentItem => Item.Type is ShelfItemType.Text;
 
     public string? ExpandedContent => IsTextContentItem
         ? Item.Content
         : null;
 
     public bool HasExpandedContent => !string.IsNullOrWhiteSpace(ExpandedContent);
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        private set
+        {
+            if (SetProperty(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(IsExpandedContentVisible));
+                OnPropertyChanged(nameof(PreviewTextTooltip));
+            }
+        }
+    }
+
+    public bool IsExpandedContentVisible => HasExpandedContent && IsExpanded;
 
     public bool HasSourcePath => !string.IsNullOrWhiteSpace(SourcePath);
 
@@ -184,6 +202,17 @@ public sealed class ShelfItemViewModel : ObservableObject
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         StatusMessage = message;
+    }
+
+    public void ToggleExpanded()
+    {
+        if (!HasExpandedContent)
+        {
+            IsExpanded = false;
+            return;
+        }
+
+        IsExpanded = !IsExpanded;
     }
 
     public void Copy()

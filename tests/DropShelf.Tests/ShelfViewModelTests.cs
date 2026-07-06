@@ -326,15 +326,14 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
-    [DataRow(ShelfItemType.Text, "full note content")]
-    [DataRow(ShelfItemType.Url, "https://example.com/path?q=1")]
-    public void ShelfItemViewModel_ExpandsTextContentItems(ShelfItemType type, string content)
+    public void ShelfItemViewModel_ExpandsTextItemsOnlyAfterToggle()
     {
+        const string content = "full note content";
         var viewModel = CreateViewModel(initialItems:
         [
             new ShelfItem
             {
-                Type = type,
+                Type = ShelfItemType.Text,
                 DisplayName = "Content",
                 Content = content,
             },
@@ -343,6 +342,44 @@ public sealed class ShelfViewModelTests
         Assert.IsTrue(viewModel.Items[0].IsTextContentItem);
         Assert.IsTrue(viewModel.Items[0].HasExpandedContent);
         Assert.AreEqual(content, viewModel.Items[0].ExpandedContent);
+        Assert.IsFalse(viewModel.Items[0].IsExpanded);
+        Assert.IsFalse(viewModel.Items[0].IsExpandedContentVisible);
+        Assert.IsNull(viewModel.Items[0].PreviewTextTooltip);
+
+        viewModel.Items[0].ToggleExpanded();
+
+        Assert.IsTrue(viewModel.Items[0].IsExpanded);
+        Assert.IsTrue(viewModel.Items[0].IsExpandedContentVisible);
+        Assert.IsNull(viewModel.Items[0].PreviewTextTooltip);
+
+        viewModel.Items[0].ToggleExpanded();
+
+        Assert.IsFalse(viewModel.Items[0].IsExpanded);
+        Assert.IsFalse(viewModel.Items[0].IsExpandedContentVisible);
+        Assert.IsNull(viewModel.Items[0].PreviewTextTooltip);
+    }
+
+    [TestMethod]
+    public void ShelfItemViewModel_DoesNotExpandUrlItems()
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.Url,
+                DisplayName = "Example",
+                Content = "https://example.com/path?q=1",
+            },
+        ]);
+
+        Assert.IsFalse(viewModel.Items[0].IsTextContentItem);
+        Assert.IsFalse(viewModel.Items[0].HasExpandedContent);
+        Assert.IsNull(viewModel.Items[0].ExpandedContent);
+
+        viewModel.Items[0].ToggleExpanded();
+
+        Assert.IsFalse(viewModel.Items[0].IsExpanded);
+        Assert.IsFalse(viewModel.Items[0].IsExpandedContentVisible);
     }
 
     [TestMethod]
@@ -425,6 +462,7 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    [DataRow(ShelfItemType.Url)]
     [DataRow(ShelfItemType.File)]
     [DataRow(ShelfItemType.Folder)]
     [DataRow(ShelfItemType.Image)]

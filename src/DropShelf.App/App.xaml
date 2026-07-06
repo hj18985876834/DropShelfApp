@@ -22,8 +22,6 @@
         <Thickness x:Key="DropShelfCardMargin">0,0,0,5</Thickness>
         <sys:Double x:Key="DropShelfCardMinHeight">70</sys:Double>
         <Thickness x:Key="DropShelfCardTextGap">0,3,0,0</Thickness>
-        <Thickness x:Key="DropShelfExpandedContentMargin">0,7,0,0</Thickness>
-        <Thickness x:Key="DropShelfExpandedContentPadding">8,6,8,6</Thickness>
         <Thickness x:Key="DropShelfDropZonePadding">9</Thickness>
         <GridLength x:Key="DropShelfTypeBadgeColumnWidth">34</GridLength>
         <Thickness x:Key="DropShelfActionButtonPadding">7,3,7,3</Thickness>

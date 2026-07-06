@@ -248,8 +248,20 @@
                                    Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
-                                   TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding PreviewText}" />
+                                   ToolTip="{Binding PreviewTextTooltip}">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                    <Setter Property="TextWrapping" Value="NoWrap" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsExpandedContentVisible}" Value="True">
+                                            <Setter Property="TextTrimming" Value="None" />
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Text="{Binding MetadataText}"
                                    Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="11"
@@ -295,39 +307,6 @@
                         </TextBlock>
                     </StackPanel>
 
-                    <Border Grid.Row="1"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="{DynamicResource DropShelfExpandedContentMargin}"
-                            Padding="{DynamicResource DropShelfExpandedContentPadding}"
-                            Background="{DynamicResource DropShelfPanelBackground}"
-                            BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="5"
-                            ClipToBounds="True">
-                        <Border.Style>
-                            <Style TargetType="{x:Type Border}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding HasExpandedContent}" Value="True" />
-                                            <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <ScrollViewer MaxHeight="164"
-                                      VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled">
-                            <TextBlock Text="{Binding ExpandedContent}"
-                                       FontSize="{DynamicResource DropShelfBodyFontSize}"
-                                       Foreground="{DynamicResource DropShelfTextBrush}"
-                                       TextWrapping="Wrap" />
-                        </ScrollViewer>
-                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>

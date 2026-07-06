@@ -44,8 +44,6 @@ public sealed class ThemeService
         resources["DropShelfCardMargin"] = new Thickness(0, 0, 0, comfortable ? 12 : 5);
         resources["DropShelfCardMinHeight"] = comfortable ? 96.0 : 70.0;
         resources["DropShelfCardTextGap"] = new Thickness(0, comfortable ? 5 : 3, 0, 0);
-        resources["DropShelfExpandedContentMargin"] = new Thickness(0, comfortable ? 12 : 7, 0, 0);
-        resources["DropShelfExpandedContentPadding"] = new Thickness(comfortable ? 12 : 8, comfortable ? 10 : 6, comfortable ? 12 : 8, comfortable ? 10 : 6);
         resources["DropShelfDropZonePadding"] = new Thickness(comfortable ? 14 : 9);
         resources["DropShelfTypeBadgeColumnWidth"] = new GridLength(comfortable ? 48 : 34);
         resources["DropShelfTypeBadgeSize"] = comfortable ? 42.0 : 30.0;

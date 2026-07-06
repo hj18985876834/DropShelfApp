@@ -28,6 +28,15 @@ Support non-file shelf items: text, URLs, and pathless images from clipboard or 
 * Plain text paste creates `ShelfItemType.Text` unless it is recognized as URL.
 * Store content locally.
 * Card shows first line or short preview.
+* Long text cards expand inline when clicked and collapse when clicked again.
+* Expansion happens in the same card preview text area: the compact one-line
+  preview switches to wrapped full text, without adding a second content box.
+* Expanded text uses the normal card width, wraps content, and does not use a
+  nested card-local scroll area or duplicate tooltip content.
+* Text cards do not show full-content hover tooltips in either compact or
+  expanded state; clicking is the way to inspect full text.
+* Dragging a text card past the WPF drag threshold starts drag-out and must not
+  also toggle expansion on mouse-up.
 * Copy action copies full text.
 
 ### URL
@@ -35,6 +44,8 @@ Support non-file shelf items: text, URLs, and pathless images from clipboard or 
 * URL paste creates `ShelfItemType.Url`.
 * Store URL string locally.
 * Card shows URL host/title-like display if cheap; otherwise URL preview is acceptable.
+* URL cards keep their compact visual form and do not use the text-card
+  expand/collapse behavior.
 * Open action launches default browser.
 * Copy action copies URL.
 
@@ -58,6 +69,7 @@ For image files dragged from Explorer:
 
 * Text card
 * URL card
+* Text card preview expanded inline
 * Image thumbnail card
 * Image cache missing/corrupt state
 * Unsupported clipboard content feedback
@@ -104,6 +116,10 @@ ThumbnailPath = app-owned thumbnail path
 
 * Pasting plain text creates text item.
 * Pasting URL creates URL item.
+* Clicking a text card expands/collapses the existing preview text into full
+  wrapped text inline without adding a nested box or scrollbar.
+* Dragging a text card out does not also expand/collapse it.
+* URL card display and open/copy behavior remain unchanged.
 * Copy text/URL works.
 * Opening URL launches default browser.
 * Pasting image creates image item.
@@ -127,7 +143,12 @@ ThumbnailPath = app-owned thumbnail path
 ### Manual Windows Tests
 
 * Copy text from Notepad and paste into shelf.
+* Click a long text card to expand the preview text in-place, verify hovering
+  does not show a full-content tooltip, click it again to collapse it,
+  then drag it out and verify drag-out does not toggle expansion.
 * Copy URL from browser and paste into shelf.
+* Verify the URL card keeps its compact display and still opens in the default
+  browser.
 * Copy screenshot/image and paste into shelf.
 * Restart app and verify image thumbnail reloads.
 * Remove image item and verify app-owned image files are gone.
