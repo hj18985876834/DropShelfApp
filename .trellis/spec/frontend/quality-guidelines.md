@@ -129,6 +129,9 @@ update loop before the release is treated as complete.
 
 * Keep app assembly version, Inno Setup `MyAppVersion`, release tag, and
   `updates/latest.json` `version` aligned.
+* Keep the GitHub repository default branch on `main`; release manifests are
+  fetched from `main`, and a different default branch makes GitHub UI and
+  release operations easy to target incorrectly.
 * Build the installer from clean generated output, then record the exact
   `EdgeTuckSetup.exe` byte size and SHA256 before editing the manifest.
 * Publish the release with GitHub CLI when available:
@@ -136,6 +139,10 @@ update loop before the release is treated as complete.
 * Verify `origin/main`, `v<version>`, and the GitHub Release target all point to
   the intended release commit. Annotated tags should be resolved with
   `git ls-remote --tags origin "v<version>" "v<version>^{}"`.
+* Verify GitHub reports `main` as the default branch:
+  `gh repo view hj18985876834/DropShelfApp --json defaultBranchRef --jq '.defaultBranchRef.name'`.
+  After changing the remote default branch, run `git remote set-head origin -a`
+  and confirm `git remote show origin` reports `HEAD branch: main`.
 * Verify the GitHub Release asset is named `EdgeTuckSetup.exe`, its asset size
   equals `updates/latest.json` `sizeBytes`, and the manifest installer URL uses
   `/releases/download/v<version>/EdgeTuckSetup.exe`.

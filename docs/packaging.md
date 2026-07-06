@@ -182,7 +182,8 @@ The downloaded file is launched only after SHA256 verification succeeds.
 
 ## GitHub Release Procedure
 
-Use `main` as the maintained source branch. Use semantic version tags for releases.
+Use `main` as the maintained source branch and GitHub repository default branch.
+Use semantic version tags for releases.
 GitHub Release creation can be done from WSL when `gh` is installed and
 authenticated there; Windows PowerShell does not need `gh` as long as release
 upload is performed from WSL.
@@ -203,6 +204,21 @@ For each release:
 12. Verify the raw manifest URL returns the committed manifest.
 13. Ask the user to run the update flow and confirm the latest version installs.
 
+If GitHub's default branch is not `main`, switch it before publishing:
+
+```bash
+gh repo view hj18985876834/DropShelfApp --json defaultBranchRef --jq '.defaultBranchRef.name'
+gh repo edit hj18985876834/DropShelfApp --default-branch main
+git remote set-head origin -a
+git remote show origin
+```
+
+`git remote show origin` must report:
+
+```text
+HEAD branch: main
+```
+
 Example GitHub CLI command:
 
 ```bash
@@ -221,6 +237,7 @@ gh release view v0.1.1 \
   --json tagName,targetCommitish,name,url,assets
 git ls-remote --heads origin main
 git ls-remote --tags origin "v0.1.1" "v0.1.1^{}"
+gh repo view hj18985876834/DropShelfApp --json defaultBranchRef --jq '.defaultBranchRef.name'
 curl -L https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest.json
 ```
 
@@ -300,14 +317,17 @@ After building `EdgeTuckSetup.exe`, validate on Windows:
 
 Before telling users to install a release, verify:
 
-1. `git ls-remote --heads origin main` points to the intended release commit.
-2. `git ls-remote --tags origin "v<version>"` points to the same intended commit.
-3. The GitHub Release page is `/releases/tag/v<version>`.
-4. The Release asset is named `EdgeTuckSetup.exe`.
-5. The Release asset size equals `updates/latest.json` `sizeBytes`.
-6. The Release asset SHA256 equals `updates/latest.json` `sha256`.
-7. The manifest `installerUrl` uses `/releases/download/v<version>/EdgeTuckSetup.exe`.
-8. The manifest includes `branding.displayName` and bilingual `branding.descriptions`.
-9. App check-update reports "latest" when local version equals manifest version and refreshes the settings-page branding.
-10. A user has successfully obtained and installed the latest version through
+1. GitHub reports `main` as the repository default branch.
+2. `git remote show origin` reports `HEAD branch: main`.
+3. `git ls-remote --heads origin main` points to the intended release commit.
+4. `git ls-remote --tags origin "v<version>" "v<version>^{}"` resolves to the
+   same intended release commit.
+5. The GitHub Release page is `/releases/tag/v<version>`.
+6. The Release asset is named `EdgeTuckSetup.exe`.
+7. The Release asset size equals `updates/latest.json` `sizeBytes`.
+8. The Release asset SHA256 equals `updates/latest.json` `sha256`.
+9. The manifest `installerUrl` uses `/releases/download/v<version>/EdgeTuckSetup.exe`.
+10. The manifest includes `branding.displayName` and bilingual `branding.descriptions`.
+11. App check-update reports "latest" when local version equals manifest version and refreshes the settings-page branding.
+12. A user has successfully obtained and installed the latest version through
     the published update flow.
