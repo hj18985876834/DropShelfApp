@@ -10,6 +10,7 @@ local app data, and does not require an account or cloud service.
 ## Features
 
 - Edge shelf: a small screen-edge handle shows or hides the shelf.
+- Pin shelf: keep the hover-opened shelf expanded until you hide it manually.
 - Drag in: drop files, folders, text, URLs, and images onto the handle or shelf.
 - Drag out: drag shelf cards back to Explorer, Desktop, editors, chat windows,
   or other apps that accept the payload.
@@ -54,6 +55,8 @@ to a Windows-local folder before launching.
 
 1. Start EdgeTuck.
 2. Use the edge handle to open the shelf.
+   Use the pin button in the shelf header if you want the shelf to stay open
+   after moving the pointer away.
 3. Drag files or folders onto the handle or shelf to create file/folder records.
 4. Copy text, URLs, or screenshots in another app, then paste into EdgeTuck.
 5. Use each card's actions:

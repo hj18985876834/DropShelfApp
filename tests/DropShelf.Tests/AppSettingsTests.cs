@@ -16,5 +16,6 @@ public sealed class AppSettingsTests
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
+        Assert.IsFalse(settings.IsShelfPinned);
     }
 }

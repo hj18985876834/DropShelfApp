@@ -10,6 +10,7 @@ namespace DropShelf.App.ViewModels;
 public sealed class ShelfViewModel : ObservableObject
 {
     private readonly Action? _openSettings;
+    private readonly Action<bool>? _pinStateChanged;
     private readonly IClipboardService _clipboardService;
     private readonly IFileActionService _fileActionService;
     private readonly ImageStore? _imageStore;
@@ -21,6 +22,7 @@ public sealed class ShelfViewModel : ObservableObject
     private bool _isDragOverUnsupported;
     private bool _isEmpty = true;
     private bool _isShelfVisible;
+    private bool _isShelfPinned;
     private ShelfItemViewModel? _selectedItem;
 
     public ShelfViewModel(
@@ -32,9 +34,12 @@ public sealed class ShelfViewModel : ObservableObject
         Func<int, bool>? confirmClearAll = null,
         LocalizationService? localizationService = null,
         DensityMode densityMode = DensityMode.Compact,
-        ThemeMode themeMode = ThemeMode.System)
+        ThemeMode themeMode = ThemeMode.System,
+        bool isShelfPinned = false,
+        Action<bool>? pinStateChanged = null)
     {
         _openSettings = openSettings;
+        _pinStateChanged = pinStateChanged;
         _fileActionService = fileActionService ?? new FileActionService();
         _clipboardService = clipboardService ?? new ClipboardService();
         _imageStore = imageStore;
@@ -42,11 +47,13 @@ public sealed class ShelfViewModel : ObservableObject
         _localizationService = localizationService ?? new LocalizationService();
         _densityMode = densityMode;
         _themeMode = themeMode;
+        _isShelfPinned = isShelfPinned;
         _localizationService.LanguageChanged += OnLanguageChanged;
 
         ShowShelfCommand = new RelayCommand(_ => IsShelfVisible = true);
         HideShelfCommand = new RelayCommand(_ => IsShelfVisible = false);
         ToggleShelfCommand = new RelayCommand(_ => IsShelfVisible = !IsShelfVisible);
+        TogglePinCommand = new RelayCommand(_ => IsShelfPinned = !IsShelfPinned);
         OpenSettingsCommand = new RelayCommand(_ => _openSettings?.Invoke());
         ClearAllCommand = new RelayCommand(_ => ClearAll(), _ => Items.Count > 0);
         RemoveSelectedCommand = new RelayCommand(_ => RemoveSelected(), _ => SelectedItem is not null);
@@ -66,6 +73,21 @@ public sealed class ShelfViewModel : ObservableObject
     {
         get => _isShelfVisible;
         set => SetProperty(ref _isShelfVisible, value);
+    }
+
+    public bool IsShelfPinned
+    {
+        get => _isShelfPinned;
+        set
+        {
+            if (!SetProperty(ref _isShelfPinned, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(PinShelfTooltip));
+            _pinStateChanged?.Invoke(value);
+        }
     }
 
     public bool IsDragOverAccepted
@@ -109,6 +131,10 @@ public sealed class ShelfViewModel : ObservableObject
     public string ItemCountSuffix => _localizationService.Text.ShelfItemCountSuffix;
 
     public string ClearAllTooltip => _localizationService.Text.ClearAllTooltip;
+
+    public string PinShelfTooltip => IsShelfPinned
+        ? _localizationService.Text.UnpinShelfTooltip
+        : _localizationService.Text.PinShelfTooltip;
 
     public string SettingsTooltip => _localizationService.Text.SettingsTooltip;
 
@@ -155,6 +181,8 @@ public sealed class ShelfViewModel : ObservableObject
     public ICommand HideShelfCommand { get; }
 
     public ICommand ToggleShelfCommand { get; }
+
+    public ICommand TogglePinCommand { get; }
 
     public ICommand OpenSettingsCommand { get; }
 
@@ -284,6 +312,7 @@ public sealed class ShelfViewModel : ObservableObject
     private void OnLanguageChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(ItemCountSuffix));
+        OnPropertyChanged(nameof(PinShelfTooltip));
         OnPropertyChanged(nameof(ClearAllTooltip));
         OnPropertyChanged(nameof(SettingsTooltip));
         OnPropertyChanged(nameof(CollapseTooltip));

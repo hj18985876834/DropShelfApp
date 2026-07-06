@@ -87,6 +87,7 @@ public partial class App : System.Windows.Application
             DensityMode = _settings.DensityMode,
             LanguageMode = _settings.LanguageMode,
             StartWithWindows = _startupService.IsEnabled(),
+            IsShelfPinned = _settings.IsShelfPinned,
         };
         _themeService.Apply(this, _settings);
         _localizationService = new LocalizationService(_settings.LanguageMode);
@@ -107,7 +108,9 @@ public partial class App : System.Windows.Application
             ConfirmClearAll,
             _localizationService,
             _settings.DensityMode,
-            _settings.ThemeMode);
+            _settings.ThemeMode,
+            _settings.IsShelfPinned,
+            SaveShelfPinState);
         _shelfViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShelfViewModel.IsShelfVisible))
@@ -330,11 +333,26 @@ public partial class App : System.Windows.Application
 
     private void ApplySettings(AppSettings settings)
     {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        ArgumentNullException.ThrowIfNull(settings);
+        var shouldRestoreCurrentPinState = settings.IsShelfPinned != _settings.IsShelfPinned;
+        _settings = new AppSettings
+        {
+            DockEdge = settings.DockEdge,
+            DockOffsetRatio = settings.DockOffsetRatio,
+            ThemeMode = settings.ThemeMode,
+            DensityMode = settings.DensityMode,
+            LanguageMode = settings.LanguageMode,
+            StartWithWindows = settings.StartWithWindows,
+            IsShelfPinned = _settings.IsShelfPinned,
+        };
         _localizationService?.SetLanguage(_settings.LanguageMode);
         _themeService?.Apply(this, _settings);
         _shelfWindow?.ApplySettings(_settings);
         _handleWindow?.ApplySettings(_settings);
+        if (shouldRestoreCurrentPinState)
+        {
+            _ = SaveCurrentSettingsAsync("Pin state restore after settings apply failed");
+        }
     }
 
     private void UpdateDockPlacement(DockPlacement placement)
@@ -348,6 +366,7 @@ public partial class App : System.Windows.Application
             DensityMode = _settings.DensityMode,
             LanguageMode = _settings.LanguageMode,
             StartWithWindows = _settings.StartWithWindows,
+            IsShelfPinned = _settings.IsShelfPinned,
         };
         _shelfWindow?.ApplySettings(_settings);
     }
@@ -483,6 +502,12 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        if (_shelfViewModel?.IsShelfPinned == true)
+        {
+            StopHoverCollapseTimer();
+            return;
+        }
+
         StopHoverCollapseTimer();
         _hoverCollapseTimer?.Start();
     }
@@ -491,6 +516,11 @@ public partial class App : System.Windows.Application
     {
         StopHoverCollapseTimer();
         if (!_isHoverExpanded || _isInternalShelfDragActive)
+        {
+            return;
+        }
+
+        if (_shelfViewModel?.IsShelfPinned == true)
         {
             return;
         }
@@ -533,6 +563,49 @@ public partial class App : System.Windows.Application
     private void StopHoverCollapseTimer()
     {
         _hoverCollapseTimer?.Stop();
+    }
+
+    private async void SaveShelfPinState(bool isPinned)
+    {
+        _settings = new AppSettings
+        {
+            DockEdge = _settings.DockEdge,
+            DockOffsetRatio = _settings.DockOffsetRatio,
+            ThemeMode = _settings.ThemeMode,
+            DensityMode = _settings.DensityMode,
+            LanguageMode = _settings.LanguageMode,
+            StartWithWindows = _settings.StartWithWindows,
+            IsShelfPinned = isPinned,
+        };
+
+        if (isPinned)
+        {
+            StopHoverCollapseTimer();
+        }
+
+        try
+        {
+            await SaveCurrentSettingsAsync("Pin state save failed");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _startupLogService?.WriteException(ex, "Pin state save failed");
+        }
+    }
+
+    private async Task SaveCurrentSettingsAsync(string failureContext)
+    {
+        try
+        {
+            if (_settingsStore is not null)
+            {
+                await _settingsStore.SaveAsync(_settings);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _startupLogService?.WriteException(ex, failureContext);
+        }
     }
 
     private void DisposeTrayIcon()

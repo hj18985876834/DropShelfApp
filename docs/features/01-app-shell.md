@@ -45,6 +45,9 @@ Create the always-available desktop shell for DropShelf: tray icon, screen-edge 
 
 * Panel appears near the handle and uses the current dock edge.
 * Panel can be hidden without exiting the app.
+* The shelf header has a pin toggle before the clear-all action. When pinned,
+  hover-expanded shelf panels stay open after pointer leave until the user
+  explicitly hides/collapses them.
 * `Escape` hides/collapses the panel when focused.
 * The initial panel content may be the empty drop zone until shelf item work is implemented.
 

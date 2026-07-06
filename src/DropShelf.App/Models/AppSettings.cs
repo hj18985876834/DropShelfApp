@@ -14,6 +14,8 @@ public sealed class AppSettings
 
     public bool StartWithWindows { get; init; }
 
+    public bool IsShelfPinned { get; init; }
+
     public static AppSettings CreateDefault()
     {
         return new AppSettings();

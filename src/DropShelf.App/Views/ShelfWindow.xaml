@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:DropShelf.App.Converters"
         xmlns:models="clr-namespace:DropShelf.App.Models"
+        xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -20,7 +21,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:ImagePathConverter x:Key="ImagePathConverter" />
 
-        <Style x:Key="HeaderButtonStyle" TargetType="{x:Type Button}">
+        <Style x:Key="HeaderButtonStyle" TargetType="{x:Type primitives:ButtonBase}">
             <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -34,7 +35,7 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type Button}">
+                    <ControlTemplate TargetType="{x:Type primitives:ButtonBase}">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
@@ -58,6 +59,18 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <Style x:Key="HeaderToggleButtonStyle"
+               TargetType="{x:Type ToggleButton}"
+               BasedOn="{StaticResource HeaderButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource DropShelfAccentBrush}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="ActionButtonStyle" TargetType="{x:Type Button}">
@@ -389,6 +402,10 @@
                                 Orientation="Horizontal"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
+                        <ToggleButton Content="&#xE718;"
+                                      IsChecked="{Binding IsShelfPinned, Mode=TwoWay}"
+                                      Style="{StaticResource HeaderToggleButtonStyle}"
+                                      ToolTip="{Binding PinShelfTooltip}" />
                         <Button Content="&#xE74D;"
                                 Command="{Binding ClearAllCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"

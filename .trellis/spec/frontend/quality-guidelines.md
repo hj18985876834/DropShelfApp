@@ -253,6 +253,26 @@ the open shelf immediately after `ThemeService.Apply(...)` updates
 <Border Padding="{DynamicResource DropShelfCardPadding}" />
 ```
 
+### WPF Instant Shell Settings
+
+Shell controls that immediately change persisted behavior, such as a header
+pin toggle, should expose state on the relevant ViewModel and pass a save
+callback into the App layer. Do not write settings directly from Views.
+
+When a shell setting can change while `SettingsWindow` is open, merge that
+state in `App.ApplySettings(...)` before saving or applying the settings page
+snapshot. This prevents an older settings-page ViewModel from overwriting a
+newer shell toggle value.
+
+Required coverage:
+
+* ViewModel tests for toggle state, localized tooltip text, and callback
+  notification.
+* Settings persistence tests that round-trip the new field and preserve it
+  through unrelated settings saves.
+* App-shell behavior review for explicit manual hide paths versus automatic
+  hover/timer collapse paths.
+
 ---
 
 ## Testing Requirements

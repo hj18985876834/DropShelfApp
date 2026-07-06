@@ -51,6 +51,27 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void TogglePinCommand_UpdatesPinnedStateAndNotifiesCallback()
+    {
+        bool? notifiedState = null;
+        var viewModel = CreateViewModel(pinStateChanged: value => notifiedState = value);
+
+        Assert.IsFalse(viewModel.IsShelfPinned);
+        Assert.AreEqual("固定收纳栏", viewModel.PinShelfTooltip);
+
+        viewModel.TogglePinCommand.Execute(null);
+
+        Assert.IsTrue(viewModel.IsShelfPinned);
+        Assert.IsTrue(notifiedState);
+        Assert.AreEqual("取消固定收纳栏", viewModel.PinShelfTooltip);
+
+        viewModel.TogglePinCommand.Execute(null);
+
+        Assert.IsFalse(viewModel.IsShelfPinned);
+        Assert.IsFalse(notifiedState);
+    }
+
+    [TestMethod]
     public void OpenSettingsCommand_InvokesConfiguredCallback()
     {
         var openCount = 0;
@@ -575,7 +596,9 @@ public sealed class ShelfViewModelTests
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
         Func<int, bool>? confirmClearAll = null,
-        LocalizationService? localizationService = null)
+        LocalizationService? localizationService = null,
+        bool isShelfPinned = false,
+        Action<bool>? pinStateChanged = null)
     {
         return new ShelfViewModel(
             initialItems: initialItems,
@@ -583,7 +606,9 @@ public sealed class ShelfViewModelTests
             clipboardService: clipboardService ?? new FakeClipboardService(),
             imageStore: imageStore,
             confirmClearAll: confirmClearAll,
-            localizationService: localizationService);
+            localizationService: localizationService,
+            isShelfPinned: isShelfPinned,
+            pinStateChanged: pinStateChanged);
     }
 
     private sealed class FakeClipboardService : IClipboardService

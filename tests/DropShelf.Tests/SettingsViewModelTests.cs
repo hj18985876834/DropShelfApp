@@ -150,6 +150,8 @@ public sealed class SettingsViewModelTests
         Assert.AreEqual(DockEdge.Right, applied?.DockEdge);
         Assert.AreEqual(0.5, applied?.DockOffsetRatio);
         Assert.AreEqual(LanguageMode.Chinese, applied?.LanguageMode);
+        Assert.IsFalse(saved.IsShelfPinned);
+        Assert.IsFalse(applied?.IsShelfPinned);
         Assert.IsTrue(viewModel.HasStatus);
         Assert.IsFalse(viewModel.IsStatusError);
     }
@@ -161,7 +163,7 @@ public sealed class SettingsViewModelTests
         var store = new SettingsStore(tempDirectory.Path);
         AppSettings? applied = null;
         var viewModel = new SettingsViewModel(
-            AppSettings.CreateDefault(),
+            new AppSettings { IsShelfPinned = true },
             store,
             null,
             settings => applied = settings);
@@ -173,6 +175,8 @@ public sealed class SettingsViewModelTests
         var saved = await store.LoadAsync();
         Assert.AreEqual(LanguageMode.English, saved.LanguageMode);
         Assert.AreEqual(LanguageMode.English, applied?.LanguageMode);
+        Assert.IsTrue(saved.IsShelfPinned);
+        Assert.IsTrue(applied?.IsShelfPinned);
         Assert.AreEqual("Settings saved.", viewModel.StatusMessage);
     }
 

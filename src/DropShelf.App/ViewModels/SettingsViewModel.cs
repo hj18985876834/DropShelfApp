@@ -29,6 +29,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _isStatusError;
     private bool _isUpdateAvailable;
     private bool _isUpdating;
+    private bool _isShelfPinned;
     private LanguageMode _languageMode;
     private bool _startWithWindows;
     private string _statusMessage = string.Empty;
@@ -79,6 +80,7 @@ public sealed class SettingsViewModel : ObservableObject
         _densityMode = settings.DensityMode;
         _languageMode = settings.LanguageMode;
         _startWithWindows = settings.StartWithWindows;
+        _isShelfPinned = settings.IsShelfPinned;
         _themeModeOptions = Enum.GetValues<ThemeMode>()
             .Select(value => new LocalizedOption<ThemeMode>(value, GetThemeModeDisplayName(value)))
             .ToArray();
@@ -282,6 +284,7 @@ public sealed class SettingsViewModel : ObservableObject
             _densityMode = value.DensityMode;
             _languageMode = value.LanguageMode;
             _startWithWindows = value.StartWithWindows;
+            _isShelfPinned = value.IsShelfPinned;
             OnPropertyChanged(nameof(DockEdge));
             OnPropertyChanged(nameof(DockOffsetRatio));
             OnPropertyChanged(nameof(ThemeMode));
@@ -410,6 +413,7 @@ public sealed class SettingsViewModel : ObservableObject
             DensityMode = DensityMode,
             LanguageMode = LanguageMode,
             StartWithWindows = StartWithWindows,
+            IsShelfPinned = _isShelfPinned,
         };
     }
 
@@ -461,6 +465,7 @@ public sealed class SettingsViewModel : ObservableObject
         _densityMode = settings.DensityMode;
         _languageMode = settings.LanguageMode;
         _startWithWindows = settings.StartWithWindows;
+        _isShelfPinned = settings.IsShelfPinned;
         OnPropertyChanged(nameof(DockEdge));
         OnPropertyChanged(nameof(DockOffsetRatio));
         OnPropertyChanged(nameof(ThemeMode));

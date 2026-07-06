@@ -21,6 +21,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
+        Assert.IsFalse(settings.IsShelfPinned);
     }
 
     [TestMethod]
@@ -37,6 +38,7 @@ public sealed class SettingsStoreTests
             DensityMode = DensityMode.Comfortable,
             LanguageMode = LanguageMode.English,
             StartWithWindows = true,
+            IsShelfPinned = true,
         };
 
         await store.SaveAsync(expected);
@@ -49,6 +51,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(expected.DensityMode, actual.DensityMode);
         Assert.AreEqual(expected.LanguageMode, actual.LanguageMode);
         Assert.AreEqual(expected.StartWithWindows, actual.StartWithWindows);
+        Assert.AreEqual(expected.IsShelfPinned, actual.IsShelfPinned);
     }
 
     [TestMethod]
@@ -66,6 +69,7 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
+        Assert.IsFalse(settings.IsShelfPinned);
     }
 
     [TestMethod]
@@ -81,7 +85,8 @@ public sealed class SettingsStoreTests
               "themeMode": "dark",
               "densityMode": "compact",
               "languageMode": "klingon",
-              "startWithWindows": true
+              "startWithWindows": true,
+              "isShelfPinned": true
             }
             """);
         var store = new SettingsStore(tempDirectory.Path);
@@ -94,5 +99,6 @@ public sealed class SettingsStoreTests
         Assert.AreEqual(DensityMode.Compact, settings.DensityMode);
         Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
+        Assert.IsFalse(settings.IsShelfPinned);
     }
 }
