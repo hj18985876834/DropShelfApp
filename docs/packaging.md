@@ -26,13 +26,13 @@ The installer version, application assembly metadata, release tag, and update ma
 For the current baseline release:
 
 ```text
-Version: 0.1.1
-Release tag: v0.1.1
-Main branch commit: v0.1.1 tag target
-Installer size: 51097188 bytes
-Installer SHA256: aa15de8d3232a8b2023fcedf1c7ae7f521365ac86a8451051beefd02ae43a9ca
-Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.1
-Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe
+Version: 0.1.2
+Release tag: v0.1.2
+Main branch commit: v0.1.2 tag target
+Installer size: 51092473 bytes
+Installer SHA256: 58912f2440c68cab27432d0945759dd69eab1118dfb465ba9f81869a741b3538
+Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.2
+Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.2/EdgeTuckSetup.exe
 ```
 
 ## Quality Gate
@@ -142,10 +142,10 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
 
 ```json
 {
-  "version": "0.1.1",
-  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe",
-  "sha256": "aa15de8d3232a8b2023fcedf1c7ae7f521365ac86a8451051beefd02ae43a9ca",
-  "sizeBytes": 51097188,
+  "version": "0.1.2",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.2/EdgeTuckSetup.exe",
+  "sha256": "58912f2440c68cab27432d0945759dd69eab1118dfb465ba9f81869a741b3538",
+  "sizeBytes": 51092473,
   "releaseDate": "2026-07-06",
   "mandatory": false,
   "branding": {
@@ -156,8 +156,8 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
     }
   },
   "releaseNotes": {
-    "zh-CN": "更新软件名称与设置页软件介绍，检查更新时同步品牌信息，并修复设置页下拉框在切换语言后的当前选项显示。",
-    "en-US": "Updated the app name and settings-page introduction, synchronized branding during update checks, and fixed current option display in settings dropdowns after language changes."
+    "zh-CN": "优化收纳栏列表滚动体验，滚轮浏览卡片时更平滑、更容易控制。长文本卡片支持点击展开或收起，可直接在卡片内查看完整内容。新增收纳栏固定按钮，可让收纳栏保持展开，固定状态会自动保存。",
+    "en-US": "Improved shelf list mouse-wheel scrolling for smoother, more controlled card browsing. Added inline expand/collapse for long text cards. Added a pin button to keep the shelf open, with the pinned state saved automatically."
   }
 }
 ```
