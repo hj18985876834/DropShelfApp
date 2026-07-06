@@ -122,6 +122,33 @@ dotnet publish .\src\DropShelf.App\DropShelf.App.csproj -c Release -r win-x64 --
 * After publishing, provide the Windows-local executable path for manual
   validation, not the WSL UNC path.
 
+### Formal Release Verification
+
+Formal releases must close the source, manifest, GitHub Release, and user
+update loop before the release is treated as complete.
+
+* Keep app assembly version, Inno Setup `MyAppVersion`, release tag, and
+  `updates/latest.json` `version` aligned.
+* Build the installer from clean generated output, then record the exact
+  `EdgeTuckSetup.exe` byte size and SHA256 before editing the manifest.
+* Publish the release with GitHub CLI when available:
+  `gh release create v<version> installer/Output/EdgeTuckSetup.exe --repo hj18985876834/DropShelfApp --target <commit> --title "EdgeTuck <version>" --notes "<notes>"`.
+* Verify `origin/main`, `v<version>`, and the GitHub Release target all point to
+  the intended release commit. Annotated tags should be resolved with
+  `git ls-remote --tags origin "v<version>" "v<version>^{}"`.
+* Verify the GitHub Release asset is named `EdgeTuckSetup.exe`, its asset size
+  equals `updates/latest.json` `sizeBytes`, and the manifest installer URL uses
+  `/releases/download/v<version>/EdgeTuckSetup.exe`.
+* Verify the raw manifest URL on `main` returns the committed manifest before
+  asking users to update.
+* Prefer downloading the published asset and checking SHA256. If GitHub download
+  speed is too slow to finish, record that limitation and fall back to GitHub
+  Release asset metadata plus the local uploaded file SHA256; then require a
+  real user-side update/install success before calling the release complete.
+* After the user confirms they successfully obtained and installed the latest
+  version through the update flow, capture that result in the session summary or
+  release notes for future troubleshooting.
+
 ### Git And Commit Scope
 
 * Use feature branches for parallel work. Expect multiple sessions to modify

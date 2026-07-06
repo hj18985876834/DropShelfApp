@@ -61,7 +61,7 @@ installer/Output/EdgeTuckSetup.exe
 * Install directory:
 
 ```text
-%LOCALAPPDATA%/Programs/DropShelf/
+%LOCALAPPDATA%/Programs/EdgeTuck/
 ```
 * Custom install directory selection is not supported in V1.
 
@@ -98,9 +98,9 @@ No app data schema changes.
 Installer variables should align with:
 
 * app name: `EdgeTuck`
-* version: `0.1.0` until release process changes it
+* version: current semantic release version, for example `0.1.1`
 * executable: `DropShelf.App.exe`
-* release tag: `v<version>`, for example `v0.1.0`
+* release tag: `v<version>`, for example `v0.1.1`
 
 ### Manual Update Manifest
 
@@ -118,14 +118,15 @@ https://github.com/hj18985876834/DropShelfApp/releases/download/v<version>/EdgeT
 
 The manifest must include the semantic version, installer URL, SHA256, byte size, release date, mandatory flag, bilingual branding metadata, and bilingual release notes.
 
-For `0.1.0`, the baseline release metadata is:
+For `0.1.1`, the baseline release metadata is:
 
 ```text
-Release tag: v0.1.0
+Release tag: v0.1.1
 Installer: EdgeTuckSetup.exe
-Size: 51089185 bytes
-SHA256: 5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055
+Size: 51097188 bytes
+SHA256: aa15de8d3232a8b2023fcedf1c7ae7f521365ac86a8451051beefd02ae43a9ca
 Display name: EdgeTuck
+Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.1
 ```
 
 The app downloads newer installers to:
@@ -167,6 +168,7 @@ The downloaded installer must pass SHA256 verification before launch.
 * Release asset size and SHA256 match `updates/latest.json`.
 * Manual update check reports latest when local version equals manifest version.
 * Manual update check synchronizes settings-page display name and introduction from `updates/latest.json` branding metadata.
+* User can obtain and install the latest version through the published update flow.
 
 ## Tests
 
@@ -185,6 +187,7 @@ The downloaded installer must pass SHA256 verification before launch.
 * Reinstall after uninstall.
 * Verify no admin prompt in normal flow.
 * Verify manual update check behavior.
+* Verify the latest published version can be downloaded and installed through the app update flow.
 
 ## Files Likely Touched
 

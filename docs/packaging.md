@@ -183,6 +183,9 @@ The downloaded file is launched only after SHA256 verification succeeds.
 ## GitHub Release Procedure
 
 Use `main` as the maintained source branch. Use semantic version tags for releases.
+GitHub Release creation can be done from WSL when `gh` is installed and
+authenticated there; Windows PowerShell does not need `gh` as long as release
+upload is performed from WSL.
 
 For each release:
 
@@ -198,6 +201,43 @@ For each release:
 10. Upload the exact `EdgeTuckSetup.exe` that was hashed.
 11. Verify the GitHub Release asset size and SHA256 match `updates/latest.json`.
 12. Verify the raw manifest URL returns the committed manifest.
+13. Ask the user to run the update flow and confirm the latest version installs.
+
+Example GitHub CLI command:
+
+```bash
+gh release create v0.1.1 installer/Output/EdgeTuckSetup.exe \
+  --repo hj18985876834/DropShelfApp \
+  --target 161b684b0345ce39f1201ef47c1560fc14fde61c \
+  --title "EdgeTuck 0.1.1" \
+  --notes-file release-notes.md
+```
+
+Verify the uploaded release metadata:
+
+```bash
+gh release view v0.1.1 \
+  --repo hj18985876834/DropShelfApp \
+  --json tagName,targetCommitish,name,url,assets
+git ls-remote --heads origin main
+git ls-remote --tags origin "v0.1.1" "v0.1.1^{}"
+curl -L https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest.json
+```
+
+If a full download from GitHub is fast enough, verify the published asset hash:
+
+```bash
+curl -L -o /tmp/EdgeTuckSetup-v0.1.1.exe \
+  https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe
+sha256sum /tmp/EdgeTuckSetup-v0.1.1.exe
+stat -c '%s %n' /tmp/EdgeTuckSetup-v0.1.1.exe
+```
+
+If the GitHub asset download is too slow to complete, do not leave the release
+unverified. Confirm the GitHub Release asset size through `gh release view`,
+confirm the uploaded local installer SHA256 matches `updates/latest.json`, and
+require a real user-side update/install success before treating the release as
+complete.
 
 Correct release URLs use this shape:
 
@@ -269,3 +309,5 @@ Before telling users to install a release, verify:
 7. The manifest `installerUrl` uses `/releases/download/v<version>/EdgeTuckSetup.exe`.
 8. The manifest includes `branding.displayName` and bilingual `branding.descriptions`.
 9. App check-update reports "latest" when local version equals manifest version and refreshes the settings-page branding.
+10. A user has successfully obtained and installed the latest version through
+    the published update flow.
