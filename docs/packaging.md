@@ -26,13 +26,13 @@ The installer version, application assembly metadata, release tag, and update ma
 For the current baseline release:
 
 ```text
-Version: 0.1.0
-Release tag: v0.1.0
-Main branch commit: f40440a
-Installer size: 51089185 bytes
-Installer SHA256: 5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055
-Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.0
-Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/EdgeTuckSetup.exe
+Version: 0.1.1
+Release tag: v0.1.1
+Main branch commit: v0.1.1 tag target
+Installer size: 51097188 bytes
+Installer SHA256: aa15de8d3232a8b2023fcedf1c7ae7f521365ac86a8451051beefd02ae43a9ca
+Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.1
+Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe
 ```
 
 ## Quality Gate
@@ -142,11 +142,11 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
 
 ```json
 {
-  "version": "0.1.0",
-  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/EdgeTuckSetup.exe",
-  "sha256": "5bf37f47db6eeedb434a3bc6d0dc4b080e9a1c37f56a54bdc80b6272e1f25055",
-  "sizeBytes": 51089185,
-  "releaseDate": "2026-07-05",
+  "version": "0.1.1",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe",
+  "sha256": "aa15de8d3232a8b2023fcedf1c7ae7f521365ac86a8451051beefd02ae43a9ca",
+  "sizeBytes": 51097188,
+  "releaseDate": "2026-07-06",
   "mandatory": false,
   "branding": {
     "displayName": "EdgeTuck",
@@ -156,8 +156,8 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
     }
   },
   "releaseNotes": {
-    "zh-CN": "初始版本。",
-    "en-US": "Initial release."
+    "zh-CN": "更新软件名称与设置页软件介绍，检查更新时同步品牌信息，并修复设置页下拉框在切换语言后的当前选项显示。",
+    "en-US": "Updated the app name and settings-page introduction, synchronized branding during update checks, and fixed current option display in settings dropdowns after language changes."
   }
 }
 ```
@@ -202,8 +202,8 @@ For each release:
 Correct release URLs use this shape:
 
 ```text
-https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.0
-https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.0/EdgeTuckSetup.exe
+https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.1
+https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.1/EdgeTuckSetup.exe
 ```
 
 Do not use these as release asset URLs:

@@ -1,5 +1,5 @@
 #define MyAppName "EdgeTuck"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppPublisher "EdgeTuck"
 #define MyAppExeName "DropShelf.App.exe"
 #define PublishDir "..\artifacts\publish\win-x64"
