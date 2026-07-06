@@ -202,6 +202,23 @@ Bind with `DisplayMemberPath="DisplayName"`, `SelectedValuePath="Value"`, and
 same option object instances and update their `DisplayName` values so both the
 drop-down list and the closed selection box refresh without clearing selection.
 
+### WPF Density Resources
+
+Density-sensitive WPF layout values should be application resources applied by
+`ThemeService`, with matching default keys in `App.xaml`. Do not leave shelf
+card height, card padding, card gaps, badge size, or drop-zone padding as local
+hard-coded XAML values when they are part of the compact/comfortable density
+experience.
+
+Use `DynamicResource` for density values in XAML so settings changes can refresh
+the open shelf immediately after `ThemeService.Apply(...)` updates
+`Application.Resources`.
+
+```xml
+<Setter Property="MinHeight" Value="{DynamicResource DropShelfCardMinHeight}" />
+<Border Padding="{DynamicResource DropShelfCardPadding}" />
+```
+
 ---
 
 ## Testing Requirements

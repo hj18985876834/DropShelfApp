@@ -17,11 +17,21 @@
         <SolidColorBrush x:Key="DropShelfWarningBackgroundBrush" Color="#FFF2D8" />
         <SolidColorBrush x:Key="DropShelfWarningTextBrush" Color="#8A4F16" />
         <SolidColorBrush x:Key="DropShelfErrorTextBrush" Color="#9A2E22" />
-        <Thickness x:Key="DropShelfPanelPadding">14</Thickness>
-        <Thickness x:Key="DropShelfCardPadding">9</Thickness>
-        <Thickness x:Key="DropShelfCardMargin">0,0,0,7</Thickness>
+        <Thickness x:Key="DropShelfPanelPadding">12</Thickness>
+        <Thickness x:Key="DropShelfCardPadding">7</Thickness>
+        <Thickness x:Key="DropShelfCardMargin">0,0,0,5</Thickness>
+        <sys:Double x:Key="DropShelfCardMinHeight">70</sys:Double>
+        <Thickness x:Key="DropShelfCardTextGap">0,3,0,0</Thickness>
+        <Thickness x:Key="DropShelfExpandedContentMargin">0,7,0,0</Thickness>
+        <Thickness x:Key="DropShelfExpandedContentPadding">8,6,8,6</Thickness>
+        <Thickness x:Key="DropShelfDropZonePadding">9</Thickness>
+        <GridLength x:Key="DropShelfTypeBadgeColumnWidth">34</GridLength>
         <Thickness x:Key="DropShelfActionButtonPadding">7,3,7,3</Thickness>
-        <sys:Double x:Key="DropShelfTypeBadgeSize">32</sys:Double>
+        <sys:Double x:Key="DropShelfTypeBadgeSize">30</sys:Double>
+        <sys:Double x:Key="DropShelfTypeIconFontSize">15</sys:Double>
+        <sys:Double x:Key="DropShelfHeaderButtonSize">28</sys:Double>
+        <Thickness x:Key="DropShelfHeaderButtonMargin">5,0,0,0</Thickness>
+        <sys:Double x:Key="DropShelfHeaderButtonFontSize">12</sys:Double>
         <sys:Double x:Key="DropShelfTitleFontSize">13</sys:Double>
         <sys:Double x:Key="DropShelfBodyFontSize">11</sys:Double>
     </Application.Resources>

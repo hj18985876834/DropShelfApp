@@ -39,13 +39,23 @@ public sealed class ThemeService
         resources["DropShelfErrorTextBrush"] = Brush(useDarkTheme ? "#FFB3A8" : "#9A2E22");
 
         var comfortable = settings.DensityMode == DensityMode.Comfortable;
-        resources["DropShelfPanelPadding"] = new Thickness(comfortable ? 18 : 14);
-        resources["DropShelfCardPadding"] = new Thickness(comfortable ? 12 : 9);
-        resources["DropShelfCardMargin"] = new Thickness(0, 0, 0, comfortable ? 10 : 7);
-        resources["DropShelfTypeBadgeSize"] = comfortable ? 38.0 : 32.0;
+        resources["DropShelfPanelPadding"] = new Thickness(comfortable ? 20 : 12);
+        resources["DropShelfCardPadding"] = new Thickness(comfortable ? 14 : 7);
+        resources["DropShelfCardMargin"] = new Thickness(0, 0, 0, comfortable ? 12 : 5);
+        resources["DropShelfCardMinHeight"] = comfortable ? 96.0 : 70.0;
+        resources["DropShelfCardTextGap"] = new Thickness(0, comfortable ? 5 : 3, 0, 0);
+        resources["DropShelfExpandedContentMargin"] = new Thickness(0, comfortable ? 12 : 7, 0, 0);
+        resources["DropShelfExpandedContentPadding"] = new Thickness(comfortable ? 12 : 8, comfortable ? 10 : 6, comfortable ? 12 : 8, comfortable ? 10 : 6);
+        resources["DropShelfDropZonePadding"] = new Thickness(comfortable ? 14 : 9);
+        resources["DropShelfTypeBadgeColumnWidth"] = new GridLength(comfortable ? 48 : 34);
+        resources["DropShelfTypeBadgeSize"] = comfortable ? 42.0 : 30.0;
+        resources["DropShelfTypeIconFontSize"] = comfortable ? 19.0 : 15.0;
         resources["DropShelfActionButtonPadding"] = new Thickness(comfortable ? 9 : 7, comfortable ? 5 : 3, comfortable ? 9 : 7, comfortable ? 5 : 3);
-        resources["DropShelfTitleFontSize"] = comfortable ? 14.0 : 13.0;
-        resources["DropShelfBodyFontSize"] = comfortable ? 12.0 : 11.0;
+        resources["DropShelfHeaderButtonSize"] = comfortable ? 34.0 : 28.0;
+        resources["DropShelfHeaderButtonMargin"] = new Thickness(comfortable ? 7 : 5, 0, 0, 0);
+        resources["DropShelfHeaderButtonFontSize"] = comfortable ? 14.0 : 12.0;
+        resources["DropShelfTitleFontSize"] = comfortable ? 15.0 : 13.0;
+        resources["DropShelfBodyFontSize"] = comfortable ? 12.5 : 11.0;
     }
 
     public bool IsDarkTheme(DropShelfThemeMode themeMode)

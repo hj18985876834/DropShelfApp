@@ -27,10 +27,10 @@
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="FontSize" Value="{DynamicResource DropShelfHeaderButtonFontSize}" />
+            <Setter Property="Width" Value="{DynamicResource DropShelfHeaderButtonSize}" />
+            <Setter Property="Height" Value="{DynamicResource DropShelfHeaderButtonSize}" />
+            <Setter Property="Margin" Value="{DynamicResource DropShelfHeaderButtonMargin}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -146,7 +146,7 @@
                     <Style TargetType="{x:Type Border}">
                         <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
                         <Setter Property="BorderBrush" Value="{DynamicResource DropShelfCardBorderBrush}" />
-                        <Setter Property="MinHeight" Value="82" />
+                        <Setter Property="MinHeight" Value="{DynamicResource DropShelfCardMinHeight}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
@@ -176,7 +176,7 @@
 
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="{DynamicResource DropShelfTypeBadgeColumnWidth}" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -186,8 +186,8 @@
 
                     <Grid Grid.Row="0"
                           Grid.Column="0"
-                          Width="38"
-                          Height="38"
+                          Width="{DynamicResource DropShelfTypeBadgeSize}"
+                          Height="{DynamicResource DropShelfTypeBadgeSize}"
                           HorizontalAlignment="Left"
                           VerticalAlignment="Top">
                         <Border Background="{DynamicResource DropShelfSubtleBrush}"
@@ -208,7 +208,7 @@
                                        FontFamily="Segoe MDL2 Assets"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
-                                       FontSize="17"
+                                       FontSize="{DynamicResource DropShelfTypeIconFontSize}"
                                        Foreground="{DynamicResource DropShelfAccentBrush}"
                                        ToolTip="{Binding TypeDisplayName}" />
                         </Border>
@@ -245,19 +245,19 @@
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding DisplayName}" />
                         <TextBlock Text="{Binding PreviewText}"
-                                   Margin="0,4,0,0"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding PreviewText}" />
                         <TextBlock Text="{Binding MetadataText}"
-                                   Margin="0,4,0,0"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="11"
                                    Foreground="{DynamicResource DropShelfMutedTextBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding MetadataText}" />
                         <TextBlock Text="{Binding MissingSourceText}"
-                                   Margin="0,4,0,0"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource DropShelfErrorTextBrush}">
@@ -273,7 +273,7 @@
                             </TextBlock.Style>
                         </TextBlock>
                         <TextBlock Text="{Binding StatusMessage}"
-                                   Margin="0,4,0,0"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource DropShelfWarningTextBrush}"
@@ -298,8 +298,8 @@
                     <Border Grid.Row="1"
                             Grid.Column="0"
                             Grid.ColumnSpan="2"
-                            Margin="0,10,0,0"
-                            Padding="10,8"
+                            Margin="{DynamicResource DropShelfExpandedContentMargin}"
+                            Padding="{DynamicResource DropShelfExpandedContentPadding}"
                             Background="{DynamicResource DropShelfPanelBackground}"
                             BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                             BorderThickness="1"
@@ -430,7 +430,7 @@
                         AllowDrop="True"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="12"
+                        Padding="{DynamicResource DropShelfDropZonePadding}"
                         DragOver="DropZone_OnDragOver"
                         DragLeave="DropZone_OnDragLeave"
                         Drop="DropZone_OnDrop">
