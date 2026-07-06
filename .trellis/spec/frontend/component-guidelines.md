@@ -209,6 +209,113 @@ handle `PreviewMouseWheel` locally and convert `MouseWheelEventArgs.Delta`
 proportionally against the standard `120` delta per wheel notch instead of using
 only the delta sign.
 
+### Scenario: Text Card Inline Expansion
+
+Use this contract for shelf text cards that need to show long content without
+turning hover tooltips or nested card regions into the primary reading surface.
+
+#### 1. Scope / Trigger
+
+Applies when changing text card preview, click expansion, drag-out gesture
+handling, or hover tooltips in `ShelfWindow` / `ShelfItemViewModel`.
+
+#### 2. Signatures
+
+* `ShelfItemViewModel.IsTextContentItem` is true only for
+  `ShelfItemType.Text`; URL cards keep their own compact/open behavior.
+* `ShelfItemViewModel.IsExpanded` stores transient UI expansion state and is not
+  persisted.
+* `ShelfItemViewModel.IsExpandedContentVisible` is the XAML-facing condition for
+  switching the preview text into expanded display.
+* `ShelfItemViewModel.PreviewTextTooltip` returns `null` for text cards so long
+  content is not duplicated in a large hover tooltip.
+* `ShelfItemViewModel.ToggleExpanded()` toggles only items with
+  `HasExpandedContent == true`; non-text items stay collapsed.
+
+#### 3. Contracts
+
+* Text cards default to the normal card layout with the existing preview
+  `TextBlock` set to single-line ellipsis.
+* Clicking a text card toggles that same preview `TextBlock` to wrapped full
+  text. Do not add a second content panel, border, or nested scroll region.
+* Expanded text cards may grow taller and should rely on the main shelf list
+  scroll, not a card-local `ScrollViewer`.
+* Text cards do not show full-content hover tooltips in either compact or
+  expanded state. Click-to-expand is the full-content inspection path.
+* URL cards must not opt into text-card expansion. Their display and open/copy
+  behavior remain separate.
+* Drag gestures use WPF minimum drag distance. Once the threshold is crossed,
+  suppress the click-toggle path even if drag-out is blocked, canceled, or
+  completes.
+
+#### 4. Validation & Error Matrix
+
+* Mouse down/up without crossing drag threshold -> toggle text expansion.
+* Mouse movement crosses drag threshold -> start or attempt drag-out; do not
+  toggle expansion on mouse-up.
+* Drag-out blocked by payload validation -> show existing card feedback; do not
+  toggle expansion.
+* Text card hover -> no full-content tooltip.
+* URL card click/double-click/open/copy -> unchanged by text expansion changes.
+
+#### 5. Good/Base/Bad Cases
+
+* Good: compact text card shows one-line preview; click expands the same text
+  area into wrapped full text.
+* Good: long text is readable by scrolling the main shelf list.
+* Good: dragging a text card out does not also expand/collapse the card.
+* Base: URL, file, folder, and image cards keep their existing compact display.
+* Bad: adding a second expanded-content border below the card preview; the first
+  line appears twice and the card feels like it contains a separate reader.
+* Bad: using a `ScrollViewer MaxHeight` inside the card for long text.
+* Bad: leaving full-content text tooltips enabled; long tooltips can cover a
+  large part of the screen.
+
+#### 6. Tests Required
+
+* Unit-test that text items expose expansion state and non-text items do not.
+* Unit-test that URL items remain non-expanded content items.
+* Unit-test that text preview tooltips are disabled.
+* Manually validate on Windows: click expand/collapse, drag-out without
+  toggling, URL card unchanged, no long text tooltip on hover.
+
+#### 7. Wrong vs Correct
+
+##### Wrong
+
+```xml
+<Border Visibility="{Binding IsExpandedContentVisible}">
+    <ScrollViewer MaxHeight="164">
+        <TextBlock Text="{Binding ExpandedContent}" TextWrapping="Wrap" />
+    </ScrollViewer>
+</Border>
+```
+
+This creates a second reading surface inside the card and can duplicate the
+first line already shown by the title/preview area.
+
+##### Correct
+
+```xml
+<TextBlock Text="{Binding PreviewText}"
+           ToolTip="{Binding PreviewTextTooltip}">
+    <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsExpandedContentVisible}" Value="True">
+                    <Setter Property="TextTrimming" Value="None" />
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </TextBlock.Style>
+</TextBlock>
+```
+
+The same preview text block owns both compact and expanded states.
+
 ---
 
 ## Accessibility
