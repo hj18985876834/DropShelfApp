@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -22,6 +23,8 @@ public partial class ShelfWindow : Window
 {
     private static readonly Duration ShellAnimationDuration = new(TimeSpan.FromMilliseconds(140));
     private static readonly TimeSpan DropFeedbackResetDelay = TimeSpan.FromSeconds(1.6);
+    private const double MouseWheelDeltaForOneNotch = 120;
+    private const double ShelfWheelScrollStep = 32;
 
     private readonly DragDropService _dragDropService;
     private readonly WindowDockService _dockService;
@@ -38,6 +41,7 @@ public partial class ShelfWindow : Window
     private WpfPoint? _dragStartPoint;
     private bool _isCardContextMenuOpen;
     private bool _isPanelVisible;
+    private ScrollViewer? _shelfItemsScrollViewer;
     private bool _wasExpandedByDrag;
 
     public ShelfWindow(
@@ -286,6 +290,20 @@ public partial class ShelfWindow : Window
         _pointerLeft?.Invoke();
     }
 
+    private void ShelfItemsList_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var scrollViewer = _shelfItemsScrollViewer ??= FindDescendant<ScrollViewer>(ShelfItemsList);
+        if (scrollViewer is null)
+        {
+            return;
+        }
+
+        var wheelNotches = e.Delta / MouseWheelDeltaForOneNotch;
+        var targetOffset = scrollViewer.VerticalOffset - wheelNotches * ShelfWheelScrollStep;
+        scrollViewer.ScrollToVerticalOffset(Math.Clamp(targetOffset, 0, scrollViewer.ScrollableHeight));
+        e.Handled = true;
+    }
+
     private void HandleDragOver(WpfDragEventArgs e, bool expandOnAccepted)
     {
         var accepted = _dragDropService.CanCreateItems(e.Data);
@@ -500,4 +518,25 @@ public partial class ShelfWindow : Window
         }
     }
 
+    private static T? FindDescendant<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (var index = 0; index < childCount; index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            var nestedMatch = FindDescendant<T>(child);
+            if (nestedMatch is not null)
+            {
+                return nestedMatch;
+            }
+        }
+
+        return null;
+    }
 }

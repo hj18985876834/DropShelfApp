@@ -190,6 +190,25 @@ quiet Windows-native colors, compact controls, and no decorative imagery.
 When introducing reusable shell styles, move them to `Resources/Styles/` instead
 of copying large style blocks between windows.
 
+### WPF Card List Scrolling
+
+For `ListBox` or other `ItemsControl` surfaces that render variable-height cards,
+prefer pixel-based virtualized scrolling:
+
+```xml
+ScrollViewer.CanContentScroll="True"
+VirtualizingPanel.IsVirtualizing="True"
+VirtualizingPanel.ScrollUnit="Pixel"
+VirtualizingPanel.VirtualizationMode="Recycling"
+```
+
+Item-based logical scrolling can make a light mouse wheel movement jump one or
+more full cards, which feels too aggressive when cards contain previews or
+expanded text. If pixel scroll units still feel too fast on the target surface,
+handle `PreviewMouseWheel` locally and convert `MouseWheelEventArgs.Delta`
+proportionally against the standard `120` delta per wheel notch instead of using
+only the delta sign.
+
 ---
 
 ## Accessibility
