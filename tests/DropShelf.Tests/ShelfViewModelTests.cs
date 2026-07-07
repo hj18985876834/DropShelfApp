@@ -381,6 +381,28 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void ShelfItemViewModel_ReorderingStateCanBeToggled()
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem
+            {
+                Type = ShelfItemType.Text,
+                DisplayName = "Content",
+                Content = "content",
+            },
+        ]);
+
+        viewModel.Items[0].IsReordering = true;
+
+        Assert.IsTrue(viewModel.Items[0].IsReordering);
+
+        viewModel.Items[0].IsReordering = false;
+
+        Assert.IsFalse(viewModel.Items[0].IsReordering);
+    }
+
+    [TestMethod]
     public void ShelfItemViewModel_DoesNotExpandUrlItems()
     {
         var viewModel = CreateViewModel(initialItems:
@@ -590,6 +612,106 @@ public sealed class ShelfViewModelTests
         Assert.IsFalse(viewModel.OpenSelectedCommand.CanExecute(null));
     }
 
+    [TestMethod]
+    [DataRow(ShelfFilterMode.File, ShelfItemType.File, "文件")]
+    [DataRow(ShelfFilterMode.Folder, ShelfItemType.Folder, "文件夹")]
+    [DataRow(ShelfFilterMode.Text, ShelfItemType.Text, "文本")]
+    [DataRow(ShelfFilterMode.Url, ShelfItemType.Url, "链接")]
+    [DataRow(ShelfFilterMode.Image, ShelfItemType.Image, "图片")]
+    public void ActiveFilter_ShowsOnlyMatchingType(ShelfFilterMode filterMode, ShelfItemType expectedType, string expectedFilterName)
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.ActiveFilter = filterMode;
+
+        Assert.HasCount(1, viewModel.VisibleItems);
+        Assert.AreEqual(expectedType, viewModel.VisibleItems[0].Type);
+        Assert.AreEqual(expectedFilterName, viewModel.FilterModeOptions.Single(option => option.Value == filterMode).DisplayName);
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void ActiveFilter_AllRestoresManualOrder()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.ActiveFilter = ShelfFilterMode.Text;
+        viewModel.ActiveFilter = ShelfFilterMode.All;
+
+        CollectionAssert.AreEqual(items, viewModel.VisibleItems.Select(item => item.Item).ToArray());
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void ActiveFilter_SelectsFirstVisibleItemWhenSelectedItemIsHidden()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.SelectedItem = viewModel.Items[0];
+
+        viewModel.ActiveFilter = ShelfFilterMode.Text;
+
+        Assert.AreSame(items[2], viewModel.SelectedItem?.Item);
+    }
+
+    [TestMethod]
+    public void ActiveFilter_ReportsNoResultsWhenNoItemsMatch()
+    {
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.Text, DisplayName = "Note", Content = "note" },
+        ]);
+
+        viewModel.ActiveFilter = ShelfFilterMode.Image;
+
+        Assert.IsTrue(viewModel.HasItems);
+        Assert.IsFalse(viewModel.HasVisibleItems);
+        Assert.IsTrue(viewModel.IsNoResults);
+        Assert.AreEqual("没有匹配项", viewModel.NoResultsTitle);
+    }
+
+    [TestMethod]
+    public void MoveItem_ReordersBackingItemsAndPreservesSelection()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.MoveItem(viewModel.Items[2], 0);
+
+        CollectionAssert.AreEqual(new[] { items[2], items[0], items[1], items[3], items[4] }, viewModel.GetShelfItems().ToArray());
+        CollectionAssert.AreEqual(viewModel.GetShelfItems().ToArray(), viewModel.VisibleItems.Select(item => item.Item).ToArray());
+        Assert.AreSame(items[2], viewModel.SelectedItem?.Item);
+    }
+
+    [TestMethod]
+    public void MoveItem_DoesNothingWhenFilterIsActive()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.ActiveFilter = ShelfFilterMode.Text;
+
+        viewModel.MoveItem(viewModel.VisibleItems[0], 0);
+
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void LanguageChange_UpdatesFilterAndCleanupText()
+    {
+        var localizationService = new LocalizationService();
+        var viewModel = CreateViewModel(localizationService: localizationService);
+
+        Assert.AreEqual("筛选", viewModel.FilterLabel);
+        Assert.AreEqual("全部", viewModel.FilterModeOptions.Single(option => option.Value == ShelfFilterMode.All).DisplayName);
+
+        localizationService.SetLanguage(LanguageMode.English);
+
+        Assert.AreEqual("Filter", viewModel.FilterLabel);
+        Assert.AreEqual("All", viewModel.FilterModeOptions.Single(option => option.Value == ShelfFilterMode.All).DisplayName);
+    }
+
     private static ShelfViewModel CreateViewModel(
         IEnumerable<ShelfItem>? initialItems = null,
         IFileActionService? fileActionService = null,
@@ -609,6 +731,18 @@ public sealed class ShelfViewModelTests
             localizationService: localizationService,
             isShelfPinned: isShelfPinned,
             pinStateChanged: pinStateChanged);
+    }
+
+    private static IEnumerable<ShelfItem> CreateMixedItems()
+    {
+        return
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "File", SourcePath = @"C:\Temp\file.txt" },
+            new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "Folder", SourcePath = @"C:\Temp" },
+            new ShelfItem { Type = ShelfItemType.Text, DisplayName = "Text", Content = "note" },
+            new ShelfItem { Type = ShelfItemType.Url, DisplayName = "Link", Content = "https://example.com" },
+            new ShelfItem { Type = ShelfItemType.Image, DisplayName = "Image", ImagePath = @"C:\Temp\image.png" },
+        ];
     }
 
     private sealed class FakeClipboardService : IClipboardService

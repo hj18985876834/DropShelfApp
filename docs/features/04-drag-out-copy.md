@@ -24,7 +24,9 @@ Allow users to drag shelf items out to Explorer/Desktop while preserving the V1 
 
 ### Drag Source
 
-* Dragging can start from the whole card or a clear drag affordance.
+* Dragging from the card body starts drag-out copy.
+* The card type badge area is reserved for internal shelf reorder and should
+  not start drag-out copy.
 * Drag payload for file/folder records should use the original `SourcePath`.
 * Preferred drag effect is copy.
 * Shelf should not remove record after drag-out.
@@ -76,6 +78,9 @@ No new shelf data fields required.
 * User cancels drag with Escape.
 * User drags a DropShelf card back into DropShelf: app should ignore the drop and
   not create a duplicate record.
+* User drags the type badge area: app shows the dragged card as lifted,
+  dynamically reorders it inside the shelf, and does not start external
+  drag-out.
 * Multiple selected items are out of scope unless multi-select is added later.
 
 ## Acceptance Criteria
@@ -89,6 +94,7 @@ No new shelf data fields required.
 * Oversized source shows a clear status message when the user attempts to drag
   it out, and no external drag/drop operation starts.
 * Dragging a shelf card back onto DropShelf does not add a duplicate card.
+* Dragging the type badge area does not start drag-out copy.
 * `dotnet build`, `dotnet test`, and `dotnet format --verify-no-changes` pass.
 
 ## Tests
@@ -104,6 +110,7 @@ No new shelf data fields required.
 
 * Drag file card to Desktop.
 * Drag folder card to Explorer.
+* Drag the type badge area and verify the card appears lifted and dynamically reorders instead of dragging out.
 * Verify original still exists.
 * Verify shelf card still exists.
 * Cancel drag and verify nothing changes.

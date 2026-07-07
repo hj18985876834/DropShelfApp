@@ -22,7 +22,9 @@ Make the MVP feel like a quiet Windows-native utility: clear, compact, predictab
 4. Items appear as stable cards.
 5. Hover reveals actions.
 6. Clicking a card selects it.
-7. Keyboard shortcuts work for the selected card.
+7. User filters cards by type.
+8. User reorders cards by dragging the type badge area.
+9. Keyboard shortcuts work for the selected card.
 
 ## Detailed Behavior
 
@@ -47,8 +49,18 @@ Make the MVP feel like a quiet Windows-native utility: clear, compact, predictab
 * Long filenames truncate cleanly.
 * Tooltip or accessible full text where practical.
 * Type affordance is visible even when actions are hidden.
+* The type affordance also acts as the internal reorder handle.
+* Dragging the type badge area reorders cards inside the shelf with a lifted-card visual state and dynamic movement while dragging.
+* Dragging the card body preserves drag-out copy behavior.
 * Actions appear on hover.
 * Repeated actions should use icon buttons with tooltips where practical.
+
+### Filtering And Cleanup
+
+* A compact filter control supports all, files, folders, text, links, and images.
+* Filtering changes only the visible projection; it does not alter persisted records or order.
+* A no-results state appears when a non-empty shelf has no cards for the selected filter.
+* Missing-source cards continue to show their existing missing/error state; users can remove them with the normal card context menu or selected-item Delete shortcut.
 
 ### Selection And Keyboard
 
@@ -79,6 +91,7 @@ No long or attention-grabbing animation.
 * Card hover
 * Card selected
 * Card missing/error
+* Filtered no-results
 * Compact density
 * Comfortable density
 * Light theme
@@ -97,6 +110,8 @@ No data schema changes required, except if UI preferences are added through Sett
 * Many items causing scroll.
 * Missing image thumbnail.
 * Keyboard focus after item removal.
+* Selected card hidden by filter.
+* Drag reorder versus drag-out copy gesture separation.
 
 ## Acceptance Criteria
 
@@ -104,6 +119,8 @@ No data schema changes required, except if UI preferences are added through Sett
 * Card hover actions do not shift layout.
 * Long text truncates without overlap.
 * Selection state is visible.
+* Type filtering works without crowding the shelf header.
+* Card reorder persists through the existing shelf persistence path.
 * Keyboard commands work.
 * UI remains usable in light and dark themes.
 * Compact/comfortable density works if Settings is available.
@@ -123,6 +140,11 @@ No data schema changes required, except if UI preferences are added through Sett
 * Add multiple item types.
 * Hover each card type.
 * Select each card type.
+* Filter by each item type.
+* Delete or move a source externally and verify the card shows missing/error state.
+* Reorder cards by dragging the type badge area.
+* Verify the dragged card appears lifted and cards move dynamically during reorder.
+* Verify card-body drag-out still works after reorder support is added.
 * Use `Escape`, `Delete`, `Ctrl+C`, `Enter`.
 * Try long filenames and long text.
 * Switch light/dark theme.

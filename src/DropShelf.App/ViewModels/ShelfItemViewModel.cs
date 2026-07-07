@@ -33,6 +33,7 @@ public sealed class ShelfItemViewModel : ObservableObject
     private readonly LocalizationService _localizationService;
     private readonly Action<ShelfItemViewModel> _remove;
     private bool _isExpanded;
+    private bool _isReordering;
     private string? _statusMessage;
 
     public ShelfItemViewModel(
@@ -133,6 +134,12 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public bool IsExpandedContentVisible => HasExpandedContent && IsExpanded;
 
+    public bool IsReordering
+    {
+        get => _isReordering;
+        set => SetProperty(ref _isReordering, value);
+    }
+
     public bool HasSourcePath => !string.IsNullOrWhiteSpace(SourcePath);
 
     public bool HasActionPath => !string.IsNullOrWhiteSpace(ActionPath);
@@ -180,6 +187,8 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string MissingSourceText => _localizationService.Text.MissingSource;
 
+    public string ReorderHandleTooltip => _localizationService.Text.ReorderHandleTooltip;
+
     public void RefreshPathState()
     {
         OnPathStateChanged();
@@ -196,6 +205,7 @@ public sealed class ShelfItemViewModel : ObservableObject
         OnPropertyChanged(nameof(ContextRevealText));
         OnPropertyChanged(nameof(ContextRemoveText));
         OnPropertyChanged(nameof(MissingSourceText));
+        OnPropertyChanged(nameof(ReorderHandleTooltip));
     }
 
     public void SetStatusMessage(string message)

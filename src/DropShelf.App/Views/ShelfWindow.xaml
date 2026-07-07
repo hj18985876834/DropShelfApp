@@ -16,7 +16,8 @@
         WindowStartupLocation="Manual"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent">
+        Background="Transparent"
+        PreviewMouseLeftButtonUp="ShelfWindow_OnPreviewMouseLeftButtonUp">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:ImagePathConverter x:Key="ImagePathConverter" />
@@ -113,12 +114,60 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ManagementButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="{DynamicResource DropShelfBodyFontSize}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfacePressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FilterComboStyle" TargetType="{x:Type ComboBox}">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="MinWidth" Value="118" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="FontSize" Value="{DynamicResource DropShelfBodyFontSize}" />
+            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
+        </Style>
+
         <Style x:Key="ShelfListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Panel.ZIndex" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -126,6 +175,12 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReordering}" Value="True">
+                    <Setter Property="Panel.ZIndex" Value="100" />
+                    <Setter Property="Opacity" Value="0.35" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <DataTemplate x:Key="ShelfItemTemplate">
@@ -138,8 +193,22 @@
                     PreviewMouseMove="ShelfItem_OnPreviewMouseMove"
                     MouseLeftButtonDown="ShelfItem_OnMouseLeftButtonDown"
                     MouseLeftButtonUp="ShelfItem_OnMouseLeftButtonUp"
+                    RenderTransformOrigin="0.5,0.5"
                     SnapsToDevicePixels="True"
                     ToolTip="{Binding DragOutTooltip}">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="0"
+                                      Direction="270"
+                                      Opacity="0"
+                                      ShadowDepth="0"
+                                      Color="#000000" />
+                </Border.Effect>
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="1" ScaleY="1" />
+                        <TranslateTransform X="0" Y="0" />
+                    </TransformGroup>
+                </Border.RenderTransform>
                 <Border.ContextMenu>
                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                  Opened="CardContextMenu_OnOpened"
@@ -160,6 +229,7 @@
                         <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
                         <Setter Property="BorderBrush" Value="{DynamicResource DropShelfCardBorderBrush}" />
                         <Setter Property="MinHeight" Value="{DynamicResource DropShelfCardMinHeight}" />
+                        <Setter Property="Panel.ZIndex" Value="0" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
@@ -172,6 +242,11 @@
                             <DataTrigger Binding="{Binding IsMissing}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
                                 <Setter Property="Background" Value="{DynamicResource DropShelfWarningBackgroundBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsReordering}" Value="True">
+                                <Setter Property="Panel.ZIndex" Value="20" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
                             </DataTrigger>
                             <EventTrigger RoutedEvent="Loaded">
                                 <BeginStoryboard>
@@ -202,7 +277,13 @@
                           Width="{DynamicResource DropShelfTypeBadgeSize}"
                           Height="{DynamicResource DropShelfTypeBadgeSize}"
                           HorizontalAlignment="Left"
-                          VerticalAlignment="Top">
+                          VerticalAlignment="Top"
+                          Cursor="SizeAll"
+                          ToolTip="{Binding ReorderHandleTooltip}"
+                          MouseLeftButtonDown="ReorderHandle_OnMouseLeftButtonDown"
+                          PreviewMouseMove="ReorderHandle_OnPreviewMouseMove"
+                          MouseLeftButtonUp="ReorderHandle_OnMouseLeftButtonUp"
+                          LostMouseCapture="ReorderHandle_OnLostMouseCapture">
                         <Border Background="{DynamicResource DropShelfSubtleBrush}"
                                 BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
                                 BorderThickness="1"
@@ -355,6 +436,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -421,8 +503,30 @@
                     </StackPanel>
                 </Grid>
 
+                <Grid Grid.Row="1" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{Binding FilterLabel}"
+                                   Margin="0,0,6,0"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding FilterModeOptions}"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding ActiveFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Style="{StaticResource FilterComboStyle}" />
+                    </StackPanel>
+                </Grid>
+
                 <Border x:Name="DropZone"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         AllowDrop="True"
                         BorderThickness="1"
                         CornerRadius="8"
@@ -521,7 +625,7 @@
                         </Grid>
 
                         <ListBox x:Name="ShelfItemsList"
-                                 ItemsSource="{Binding Items}"
+                                 ItemsSource="{Binding VisibleItems}"
                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                                  ItemTemplate="{StaticResource ShelfItemTemplate}"
                                  ItemContainerStyle="{StaticResource ShelfListBoxItemStyle}"
@@ -543,10 +647,49 @@
                                         <DataTrigger Binding="{Binding IsEmpty}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsNoResults}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </ListBox.Style>
                         </ListBox>
+
+                        <Grid HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Margin="4"
+                              Visibility="{Binding IsNoResults, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Width="250">
+                                <Border Width="48"
+                                        Height="48"
+                                        HorizontalAlignment="Center"
+                                        Background="{DynamicResource DropShelfSubtleBrush}"
+                                        BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <TextBlock Text="&#xE71C;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="22"
+                                               Foreground="{DynamicResource DropShelfAccentBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding NoResultsTitle}"
+                                           Margin="0,12,0,0"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DropShelfTextBrush}"
+                                           TextAlignment="Center" />
+                                <TextBlock Text="{Binding NoResultsDescription}"
+                                           Margin="0,6,0,0"
+                                           FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                           Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
 
                         <Border x:Name="DropStateOverlay"
                                 HorizontalAlignment="Stretch"
@@ -615,6 +758,79 @@
                 </Border>
             </Grid>
         </Border>
+
+        <Canvas x:Name="ReorderOverlayLayer"
+                IsHitTestVisible="False"
+                Panel.ZIndex="1000">
+            <Border x:Name="ReorderPreviewCard"
+                    Visibility="Collapsed"
+                    Width="260"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="{DynamicResource DropShelfCardPadding}"
+                    Background="{DynamicResource DropShelfSurfaceHoverBrush}"
+                    BorderBrush="{DynamicResource DropShelfAccentBrush}"
+                    RenderTransformOrigin="0.5,0.5"
+                    ClipToBounds="True"
+                    SnapsToDevicePixels="True">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="34"
+                                      Direction="270"
+                                      Opacity="0.42"
+                                      ShadowDepth="14"
+                                      Color="#000000" />
+                </Border.Effect>
+                <Border.RenderTransform>
+                    <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
+                </Border.RenderTransform>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{DynamicResource DropShelfTypeBadgeColumnWidth}" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Width="{DynamicResource DropShelfTypeBadgeSize}"
+                            Height="{DynamicResource DropShelfTypeBadgeSize}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Background="{DynamicResource DropShelfSubtleBrush}"
+                            BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <TextBlock Text="{Binding TypeIcon}"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="{DynamicResource DropShelfTypeIconFontSize}"
+                                   Foreground="{DynamicResource DropShelfAccentBrush}" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   FontSize="{DynamicResource DropShelfTitleFontSize}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DropShelfTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+                        <TextBlock Text="{Binding PreviewText}"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+                        <TextBlock Text="{Binding MetadataText}"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Canvas>
 
     </Grid>
 </Window>

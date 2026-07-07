@@ -259,6 +259,63 @@ Shell controls that immediately change persisted behavior, such as a header
 pin toggle, should expose state on the relevant ViewModel and pass a save
 callback into the App layer. Do not write settings directly from Views.
 
+### WPF Interaction Animations
+
+For runtime interaction animations on item templates, animate concrete WPF
+objects rather than deep, unnamed `Storyboard.TargetProperty` paths.
+
+Avoid paths such as:
+
+```xml
+Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+```
+
+These can compile but fail at runtime with `XamlParseException` when WPF cannot
+resolve a dependency object in the path while materializing a virtualized item.
+Use one of these stable patterns instead:
+
+* Give the animated `ScaleTransform`, `TranslateTransform`, or `Effect` a
+  template-local name and target it with `Storyboard.TargetName`.
+* Or find the realized item container in code-behind and call `BeginAnimation`
+  on the concrete `ScaleTransform`, `TranslateTransform`, or
+  `DropShadowEffect` instance.
+* Before animating `Transform` or `Effect` instances that came from a `Style`
+  setter or resource, check `IsFrozen`. WPF can freeze shared `Freezable`
+  objects. Replace frozen transforms/effects with per-card instances before
+  calling `BeginAnimation`.
+
+For drag reorder lift/drop effects, do not animate the realized `ListBoxItem` as
+the dragged object. A virtualized/recycling `ListBox` can reuse containers while
+auto-scroll changes the visible range, which makes real-item lift/drop effects
+fragile. Use a top-level non-hit-testable overlay card for the drag preview and
+leave the real list item as a semi-transparent placeholder. The overlay follows
+the pointer in window coordinates and is independent from list scrolling,
+virtualization, and container reuse. Clamp the overlay to the list viewport and
+size it from the scroll viewer viewport width, not arbitrary text content, so
+long text cannot make the preview wider than neighboring cards. Target-card
+detection should fall back to vertical range matching when direct hit-testing
+does not return a card, because horizontal width differences and scroll viewer
+chrome should not prevent reorder.
+
+After changing reorder animations, publish and launch the Windows-local
+validation executable and validate the drag gesture itself; build and
+startup-only checks are not sufficient because invalid storyboard paths, frozen
+`Freezable` instances, or list virtualization effects can fail only when the
+item template is realized and dragged.
+
+Drag reorder in a scrollable shelf must support edge auto-scroll. Keep the
+latest pointer position in list coordinates, run a short dispatcher timer while
+the reorder gesture is active, and scroll when the pointer enters the top or
+bottom edge zone. Scroll speed should increase as the pointer approaches the
+edge. Keep auto-scroll conservative: do not synchronously force a reorder on
+every scroll tick, because scrolling changes the item under the pointer and can
+create a scroll/reorder/layout feedback loop. Reorder on pointer movement and,
+after auto-scroll, queue at most one dispatcher callback after layout settles to
+try a reorder at the current pointer position. Only reorder after the pointer
+crosses the target card's midpoint band. Stop auto-scroll and clear pending
+auto-scroll reorder callbacks on every reorder cleanup path: mouse up, lost
+capture, cancelled drag, or left button no longer pressed.
+
 When a shell setting can change while `SettingsWindow` is open, merge that
 state in `App.ApplySettings(...)` before saving or applying the settings page
 snapshot. This prevents an older settings-page ViewModel from overwriting a
@@ -272,6 +329,36 @@ Required coverage:
   through unrelated settings saves.
 * App-shell behavior review for explicit manual hide paths versus automatic
   hover/timer collapse paths.
+
+### WPF Shelf Card Management
+
+Shelf filtering must be a visible projection over the persisted card collection.
+Keep the full `ShelfViewModel.Items` collection as the source of truth for
+persistence, item count, cleanup, and manual order. Bind the card list to a
+separate visible projection such as `VisibleItems`, and keep
+`GetShelfItems()` returning the full backing collection.
+
+Do not remove, save, or reorder only the visible projection. Any operation that
+changes shelf records or order must update the backing `Items` collection so the
+existing `Items.CollectionChanged -> QueueShelfSave() -> GetShelfItems()` path
+persists the correct data.
+
+When adding card gestures, keep drag-out copy and internal reorder gestures
+separate:
+
+* Dragging the card body starts drag-out copy.
+* Dragging the type badge/reorder handle starts internal reorder.
+* Internal reorder should show the dragged card as lifted and move cards
+  dynamically while dragging, not only on mouse-up, unless a later task
+  explicitly chooses a placeholder-only preview.
+* Click-to-expand for text cards must only run when movement stays below the
+  drag threshold.
+
+Required coverage:
+
+* ViewModel tests that filtering leaves `GetShelfItems()` unchanged.
+* ViewModel tests that reorder changes the backing collection order.
+* Manual Windows validation for reorder versus drag-out and text expansion.
 
 ---
 

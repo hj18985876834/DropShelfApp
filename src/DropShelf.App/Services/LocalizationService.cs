@@ -96,6 +96,7 @@ public sealed class LocalizationService
             ? $"确定要清空当前 {itemCount} 个暂存项吗？原始文件不会被删除。"
             : $"Clear {itemCount} shelf item{(itemCount == 1 ? string.Empty : "s")}? Original files will not be deleted.";
     }
+
 }
 
 public sealed record AppText(
@@ -131,6 +132,15 @@ public sealed record AppText(
     string SettingsSaved,
     string SettingsSaveFailed,
     string ShelfItemCountSuffix,
+    string FilterLabel,
+    string FilterAll,
+    string FilterFiles,
+    string FilterFolders,
+    string FilterText,
+    string FilterLinks,
+    string FilterImages,
+    string NoResultsTitle,
+    string NoResultsDescription,
     string PinShelfTooltip,
     string UnpinShelfTooltip,
     string ClearAllTooltip,
@@ -179,7 +189,8 @@ public sealed record AppText(
     string RevealFailed,
     string DragOutTooLarge,
     string DragOutSizeUnreadable,
-    string DragOutSourceMissing)
+    string DragOutSourceMissing,
+    string ReorderHandleTooltip)
 {
     public static AppText Chinese { get; } = new(
         "EdgeTuck 设置",
@@ -214,6 +225,15 @@ public sealed record AppText(
         "设置已保存。",
         "无法保存设置。",
         " 项",
+        "筛选",
+        "全部",
+        "文件",
+        "文件夹",
+        "文本",
+        "链接",
+        "图片",
+        "没有匹配项",
+        "当前筛选下没有暂存项。",
         "固定收纳栏",
         "取消固定收纳栏",
         "清空全部",
@@ -262,7 +282,8 @@ public sealed record AppText(
         "项目缺失或无法定位。",
         "项目过大，无法拖出。最大支持 512 MB。",
         "无法读取项目大小。",
-        "源文件缺失。");
+        "源文件缺失。",
+        "拖动此区域可排序");
 
     public static AppText English { get; } = new(
         "EdgeTuck Settings",
@@ -297,6 +318,15 @@ public sealed record AppText(
         "Settings saved.",
         "Unable to save settings.",
         " items",
+        "Filter",
+        "All",
+        "Files",
+        "Folders",
+        "Text",
+        "Links",
+        "Images",
+        "No matching items",
+        "No shelf items match this filter.",
         "Pin shelf",
         "Unpin shelf",
         "Clear all",
@@ -345,5 +375,6 @@ public sealed record AppText(
         "Item is missing or cannot be revealed.",
         "Item is too large to drag out. Maximum supported size is 512 MB.",
         "Unable to read item size.",
-        "Source is missing.");
+        "Source is missing.",
+        "Drag here to reorder");
 }

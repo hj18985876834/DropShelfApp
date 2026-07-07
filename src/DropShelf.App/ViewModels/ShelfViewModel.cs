@@ -18,11 +18,13 @@ public sealed class ShelfViewModel : ObservableObject
     private readonly LocalizationService _localizationService;
     private readonly DensityMode _densityMode;
     private readonly ThemeMode _themeMode;
+    private readonly IReadOnlyList<LocalizedOption<ShelfFilterMode>> _filterModeOptions;
     private bool _isDragOverAccepted;
     private bool _isDragOverUnsupported;
     private bool _isEmpty = true;
     private bool _isShelfVisible;
     private bool _isShelfPinned;
+    private ShelfFilterMode _activeFilter;
     private ShelfItemViewModel? _selectedItem;
 
     public ShelfViewModel(
@@ -48,6 +50,9 @@ public sealed class ShelfViewModel : ObservableObject
         _densityMode = densityMode;
         _themeMode = themeMode;
         _isShelfPinned = isShelfPinned;
+        _filterModeOptions = Enum.GetValues<ShelfFilterMode>()
+            .Select(value => new LocalizedOption<ShelfFilterMode>(value, GetFilterModeDisplayName(value)))
+            .ToArray();
         _localizationService.LanguageChanged += OnLanguageChanged;
 
         ShowShelfCommand = new RelayCommand(_ => IsShelfVisible = true);
@@ -68,6 +73,10 @@ public sealed class ShelfViewModel : ObservableObject
     }
 
     public ObservableCollection<ShelfItemViewModel> Items { get; } = [];
+
+    public ObservableCollection<ShelfItemViewModel> VisibleItems { get; } = [];
+
+    public IReadOnlyList<LocalizedOption<ShelfFilterMode>> FilterModeOptions => _filterModeOptions;
 
     public bool IsShelfVisible
     {
@@ -128,7 +137,19 @@ public sealed class ShelfViewModel : ObservableObject
 
     public int ItemCount => Items.Count;
 
+    public int VisibleItemCount => VisibleItems.Count;
+
+    public bool HasVisibleItems => VisibleItems.Count > 0;
+
+    public bool IsNoResults => HasItems && !HasVisibleItems;
+
     public string ItemCountSuffix => _localizationService.Text.ShelfItemCountSuffix;
+
+    public string FilterLabel => _localizationService.Text.FilterLabel;
+
+    public string NoResultsTitle => _localizationService.Text.NoResultsTitle;
+
+    public string NoResultsDescription => _localizationService.Text.NoResultsDescription;
 
     public string ClearAllTooltip => _localizationService.Text.ClearAllTooltip;
 
@@ -176,6 +197,22 @@ public sealed class ShelfViewModel : ObservableObject
 
     public bool IsDarkTheme => _themeMode == ThemeMode.Dark;
 
+    public ShelfFilterMode ActiveFilter
+    {
+        get => _activeFilter;
+        set
+        {
+            if (!SetProperty(ref _activeFilter, value))
+            {
+                return;
+            }
+
+            RefreshVisibleItems();
+            OnPropertyChanged(nameof(NoResultsTitle));
+            OnPropertyChanged(nameof(NoResultsDescription));
+        }
+    }
+
     public ICommand ShowShelfCommand { get; }
 
     public ICommand HideShelfCommand { get; }
@@ -215,7 +252,9 @@ public sealed class ShelfViewModel : ObservableObject
 
         if (shouldSelectFirstNewItem)
         {
-            SelectedItem = firstNewItem;
+            SelectedItem = firstNewItem is not null && VisibleItems.Contains(firstNewItem)
+                ? firstNewItem
+                : VisibleItems.FirstOrDefault();
         }
     }
 
@@ -247,7 +286,35 @@ public sealed class ShelfViewModel : ObservableObject
             item.RefreshPathState();
         }
 
+        RefreshVisibleItems();
+        RaiseCollectionStateChanged();
         RaiseSelectedCommandCanExecuteChanged();
+    }
+
+    public void MoveItem(ShelfItemViewModel item, int targetVisibleIndex)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (ActiveFilter is not ShelfFilterMode.All)
+        {
+            return;
+        }
+
+        var sourceIndex = Items.IndexOf(item);
+        if (sourceIndex < 0 || targetVisibleIndex < 0 || targetVisibleIndex >= VisibleItems.Count)
+        {
+            return;
+        }
+
+        var targetItem = VisibleItems[targetVisibleIndex];
+        var targetIndex = Items.IndexOf(targetItem);
+        if (targetIndex < 0 || sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        Items.Move(sourceIndex, targetIndex);
+        SelectedItem = item;
     }
 
     private ShelfItemViewModel CreateItemViewModel(ShelfItem item)
@@ -271,7 +338,7 @@ public sealed class ShelfViewModel : ObservableObject
         {
             SelectedItem = Items.Count == 0
                 ? null
-                : Items[Math.Min(itemIndex, Items.Count - 1)];
+                : FirstVisibleItemAtOrBefore(itemIndex);
         }
     }
 
@@ -297,9 +364,8 @@ public sealed class ShelfViewModel : ObservableObject
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        IsEmpty = Items.Count == 0;
-        OnPropertyChanged(nameof(HasItems));
-        OnPropertyChanged(nameof(ItemCount));
+        RefreshVisibleItems();
+        RaiseCollectionStateChanged();
 
         if (ClearAllCommand is RelayCommand clearCommand)
         {
@@ -312,6 +378,9 @@ public sealed class ShelfViewModel : ObservableObject
     private void OnLanguageChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(ItemCountSuffix));
+        OnPropertyChanged(nameof(FilterLabel));
+        OnPropertyChanged(nameof(NoResultsTitle));
+        OnPropertyChanged(nameof(NoResultsDescription));
         OnPropertyChanged(nameof(PinShelfTooltip));
         OnPropertyChanged(nameof(ClearAllTooltip));
         OnPropertyChanged(nameof(SettingsTooltip));
@@ -330,6 +399,89 @@ public sealed class ShelfViewModel : ObservableObject
         {
             item.RefreshLocalizedText();
         }
+
+        foreach (var option in _filterModeOptions)
+        {
+            option.DisplayName = GetFilterModeDisplayName(option.Value);
+        }
+    }
+
+    private void RefreshVisibleItems()
+    {
+        var previousSelection = SelectedItem;
+        var visibleItems = Items.Where(MatchesFilter).ToArray();
+        VisibleItems.Clear();
+        foreach (var item in visibleItems)
+        {
+            VisibleItems.Add(item);
+        }
+
+        OnPropertyChanged(nameof(VisibleItemCount));
+        OnPropertyChanged(nameof(HasVisibleItems));
+        OnPropertyChanged(nameof(IsNoResults));
+
+        if (previousSelection is not null && VisibleItems.Contains(previousSelection))
+        {
+            SelectedItem = previousSelection;
+        }
+        else
+        {
+            SelectedItem = VisibleItems.FirstOrDefault();
+        }
+    }
+
+    private bool MatchesFilter(ShelfItemViewModel item)
+    {
+        return ActiveFilter switch
+        {
+            ShelfFilterMode.All => true,
+            ShelfFilterMode.File => item.Type is ShelfItemType.File,
+            ShelfFilterMode.Folder => item.Type is ShelfItemType.Folder,
+            ShelfFilterMode.Text => item.Type is ShelfItemType.Text,
+            ShelfFilterMode.Url => item.Type is ShelfItemType.Url,
+            ShelfFilterMode.Image => item.Type is ShelfItemType.Image,
+            _ => true,
+        };
+    }
+
+    private ShelfItemViewModel? FirstVisibleItemAtOrBefore(int itemIndex)
+    {
+        if (VisibleItems.Count == 0)
+        {
+            return null;
+        }
+
+        var directCandidate = itemIndex < Items.Count
+            ? Items[itemIndex]
+            : Items.LastOrDefault();
+        if (directCandidate is not null && VisibleItems.Contains(directCandidate))
+        {
+            return directCandidate;
+        }
+
+        return VisibleItems.FirstOrDefault();
+    }
+
+    private void RaiseCollectionStateChanged()
+    {
+        IsEmpty = Items.Count == 0;
+        OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(IsNoResults));
+    }
+
+    private string GetFilterModeDisplayName(ShelfFilterMode value)
+    {
+        return value switch
+        {
+            ShelfFilterMode.All => _localizationService.Text.FilterAll,
+            ShelfFilterMode.File => _localizationService.Text.FilterFiles,
+            ShelfFilterMode.Folder => _localizationService.Text.FilterFolders,
+            ShelfFilterMode.Text => _localizationService.Text.FilterText,
+            ShelfFilterMode.Url => _localizationService.Text.FilterLinks,
+            ShelfFilterMode.Image => _localizationService.Text.FilterImages,
+            _ => value.ToString(),
+        };
     }
 
     private void RaiseSelectedCommandCanExecuteChanged()

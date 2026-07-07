@@ -14,6 +14,8 @@ local app data, and does not require an account or cloud service.
 - Drag in: drop files, folders, text, URLs, and images onto the handle or shelf.
 - Drag out: drag shelf cards back to Explorer, Desktop, editors, chat windows,
   or other apps that accept the payload.
+- Card management: filter by item type and reorder cards by dragging the type
+  badge area.
 - Quick actions: copy, open, reveal in Explorer, remove one item, or clear all
   records.
 - Local persistence: shelf records and settings are restored after restart.
@@ -64,7 +66,10 @@ to a Windows-local folder before launching.
    - `Open`: open the file, folder, URL, or image with Windows defaults.
    - `Reveal`: show file/folder/image location in Explorer.
    - `Remove`: remove the shelf record.
-6. Drag a card out to another app when you want to reuse it.
+6. Use the filter control to show all items or one item type.
+7. Drag the type badge area on a card to reorder cards inside the shelf; the
+   dragged card lifts visually and cards move dynamically while you drag.
+8. Drag the card body out to another app when you want to reuse it.
 
 Removing a file or folder record never deletes the original file or folder.
 Clearing the shelf removes records only. App-owned pasted image files may be
