@@ -8,10 +8,11 @@ TestResults/
 *.suo
 *.nupkg
 
-# Trellis local runtime/session state
-.trellis/.runtime/
-.trellis/.developer
-.trellis/workspace/
+# Local AI/Trellis development files
+AGENTS.md
+.agents/
+.codex/
+.trellis/
 
 # DropShelf local/generated files
 *.log
