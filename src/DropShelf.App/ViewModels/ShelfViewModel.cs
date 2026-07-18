@@ -317,6 +317,29 @@ public sealed class ShelfViewModel : ObservableObject
         SelectedItem = item;
     }
 
+    public bool MoveSelectedItem(int visibleOffset)
+    {
+        if (SelectedItem is null || ActiveFilter is not ShelfFilterMode.All)
+        {
+            return false;
+        }
+
+        var sourceVisibleIndex = VisibleItems.IndexOf(SelectedItem);
+        if (sourceVisibleIndex < 0)
+        {
+            return false;
+        }
+
+        var targetVisibleIndex = Math.Clamp(sourceVisibleIndex + visibleOffset, 0, VisibleItems.Count - 1);
+        if (targetVisibleIndex == sourceVisibleIndex)
+        {
+            return false;
+        }
+
+        MoveItem(SelectedItem, targetVisibleIndex);
+        return true;
+    }
+
     private ShelfItemViewModel CreateItemViewModel(ShelfItem item)
     {
         return new ShelfItemViewModel(item, _fileActionService, _clipboardService, RemoveItem, _localizationService);

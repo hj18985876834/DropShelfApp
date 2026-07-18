@@ -762,6 +762,25 @@
         <Canvas x:Name="ReorderOverlayLayer"
                 IsHitTestVisible="False"
                 Panel.ZIndex="1000">
+            <Border x:Name="ReorderDropIndicator"
+                    Visibility="Collapsed"
+                    Width="260"
+                    Height="3"
+                    CornerRadius="1.5"
+                    Background="{DynamicResource DropShelfAccentBrush}"
+                    Opacity="0.96">
+                <Border.RenderTransform>
+                    <TranslateTransform />
+                </Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10"
+                                      Direction="270"
+                                      Opacity="0.22"
+                                      ShadowDepth="0"
+                                      Color="#000000" />
+                </Border.Effect>
+            </Border>
+
             <Border x:Name="ReorderPreviewCard"
                     Visibility="Collapsed"
                     Width="260"
@@ -781,7 +800,10 @@
                                       Color="#000000" />
                 </Border.Effect>
                 <Border.RenderTransform>
-                    <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="1.045" ScaleY="1.045" />
+                        <TranslateTransform />
+                    </TransformGroup>
                 </Border.RenderTransform>
 
                 <Grid>

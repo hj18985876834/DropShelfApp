@@ -698,6 +698,47 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void MoveSelectedItem_MovesSelectedItemByVisibleOffset()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.SelectedItem = viewModel.Items[1];
+
+        var moved = viewModel.MoveSelectedItem(1);
+
+        Assert.IsTrue(moved);
+        CollectionAssert.AreEqual(new[] { items[0], items[2], items[1], items[3], items[4] }, viewModel.GetShelfItems().ToArray());
+        Assert.AreSame(items[1], viewModel.SelectedItem?.Item);
+    }
+
+    [TestMethod]
+    public void MoveSelectedItem_ClampsAtListBoundary()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.SelectedItem = viewModel.Items[0];
+
+        var moved = viewModel.MoveSelectedItem(-1);
+
+        Assert.IsFalse(moved);
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void MoveSelectedItem_DoesNothingWhenFilterIsActive()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.SelectedItem = viewModel.Items[2];
+        viewModel.ActiveFilter = ShelfFilterMode.Text;
+
+        var moved = viewModel.MoveSelectedItem(1);
+
+        Assert.IsFalse(moved);
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
     public void LanguageChange_UpdatesFilterAndCleanupText()
     {
         var localizationService = new LocalizationService();
