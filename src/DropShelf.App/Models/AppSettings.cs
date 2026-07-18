@@ -16,6 +16,14 @@ public sealed class AppSettings
 
     public bool IsShelfPinned { get; init; }
 
+    public AutoUpdateCheckMode AutoUpdateCheckMode { get; init; } = AutoUpdateCheckMode.Weekly;
+
+    public DateTimeOffset? LastAutomaticUpdateCheckUtc { get; init; }
+
+    public string? PendingUpdateVersion { get; init; }
+
+    public string? LastUpdateCompletedVersion { get; init; }
+
     public static AppSettings CreateDefault()
     {
         return new AppSettings();

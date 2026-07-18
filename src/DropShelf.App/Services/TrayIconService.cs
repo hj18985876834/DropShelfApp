@@ -65,6 +65,19 @@ public sealed class TrayIconService : IDisposable
         _hideShelfItem.Enabled = isVisible;
     }
 
+    public void ShowInfo(string title, string message)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        _notifyIcon.BalloonTipTitle = title;
+        _notifyIcon.BalloonTipText = message;
+        _notifyIcon.BalloonTipIcon = Forms.ToolTipIcon.Info;
+        _notifyIcon.ShowBalloonTip(5000);
+    }
+
     private void ApplyText(AppText texts)
     {
         _showShelfItem.Text = texts.TrayShowShelf;

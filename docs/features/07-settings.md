@@ -2,7 +2,7 @@
 
 ## Goal
 
-Provide a short settings window for user-controlled MVP preferences: dock edge, theme, density, and start with Windows.
+Provide a short settings window for user-controlled MVP preferences: dock edge, theme, density, start with Windows, and automatic update-check policy.
 
 ## Branch
 
@@ -24,7 +24,8 @@ Provide a short settings window for user-controlled MVP preferences: dock edge, 
 6. User changes density.
 7. Card density changes.
 8. User toggles start with Windows.
-9. Setting persists after restart.
+9. User chooses an automatic update-check policy.
+10. Settings persist after restart.
 
 ## Detailed Behavior
 
@@ -53,6 +54,15 @@ Start with Windows:
 * Boolean
 * Default off
 
+Automatic update check:
+
+* Never
+* Daily
+* Weekly
+* Default weekly
+* Automatic checks fetch update metadata only. They must not download installers
+  or launch Setup without a user click.
+
 ### Apply Behavior
 
 * Settings save locally.
@@ -60,6 +70,8 @@ Start with Windows:
 * Theme should apply without requiring restart if practical.
 * Density should apply without requiring restart.
 * Startup toggle writes/removes registry entry through `StartupService`.
+* Automatic update-check policy saves locally and is applied by app startup
+  scheduling.
 
 ### Startup Registration
 
@@ -82,6 +94,7 @@ Rules:
 * Changed setting saved
 * Startup toggle success
 * Startup toggle failure
+* Automatic update policy changed
 * Invalid/unavailable registry write feedback, if failure occurs
 
 ## Data Contract
@@ -93,6 +106,11 @@ DockEdge DockEdge
 ThemeMode ThemeMode
 DensityMode DensityMode
 bool StartWithWindows
+bool IsShelfPinned
+AutoUpdateCheckMode AutoUpdateCheckMode
+DateTimeOffset? LastAutomaticUpdateCheckUtc
+string? PendingUpdateVersion
+string? LastUpdateCompletedVersion
 ```
 
 Defaults must match `AppSettings.CreateDefault()`.
@@ -105,6 +123,7 @@ Defaults must match `AppSettings.CreateDefault()`.
 * App executable path changes after reinstall.
 * User manually deletes registry entry while setting says enabled.
 * Theme system setting changes while app is running.
+* Settings file comes from a version before automatic update fields existed.
 
 ## Acceptance Criteria
 
@@ -113,6 +132,7 @@ Defaults must match `AppSettings.CreateDefault()`.
 * Theme mode changes persist.
 * Density changes persist.
 * Start with Windows writes/removes HKCU Run key.
+* Automatic update policy persists and defaults to weekly.
 * Defaults match PRD.
 * No admin prompt is required.
 * `dotnet build`, `dotnet test`, and `dotnet format --verify-no-changes` pass.
@@ -126,6 +146,7 @@ Defaults must match `AppSettings.CreateDefault()`.
 * Invalid settings fallback.
 * StartupService writes/removes using an abstracted registry adapter.
 * Theme/density mapping tests if logic is not purely XAML.
+* Automatic update policy option display and persistence.
 
 ### Manual Windows Tests
 
@@ -133,6 +154,7 @@ Defaults must match `AppSettings.CreateDefault()`.
 * Change theme and restart.
 * Change density and restart.
 * Toggle start with Windows on/off and verify registry key.
+* Change automatic update policy and restart.
 * Confirm no admin prompt.
 
 ## Files Likely Touched

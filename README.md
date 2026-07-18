@@ -19,9 +19,11 @@ local app data, and does not require an account or cloud service.
 - Quick actions: copy, open, reveal in Explorer, remove one item, or clear all
   records.
 - Local persistence: shelf records and settings are restored after restart.
-- Settings: shelf position, theme, density, language, and Start with Windows.
-- Updates: manual check for updates, installer download, checksum validation,
-  and installer launch.
+- Settings: shelf position, theme, density, language, Start with Windows, and
+  automatic update-check policy.
+- Updates: weekly metadata checks by default, release notes before install,
+  installer download, checksum validation, installer launch, and a one-time
+  updated-version notice.
 - Tray icon: show shelf, hide shelf, open settings, or quit.
 
 ## System Requirements
@@ -40,7 +42,8 @@ The installer:
 - creates a Start Menu shortcut;
 - optionally creates a desktop shortcut;
 - launches EdgeTuck after installation when selected;
-- registers a normal Windows uninstall entry.
+- registers a normal Windows uninstall entry;
+- removes legacy `DropShelf` shortcuts during renamed upgrades.
 
 For development validation without installing, publish the app and run the full
 published folder, not a single copied executable. The current validation output
@@ -96,6 +99,9 @@ Available settings:
 - Density: Compact or Comfortable.
 - Language: Chinese or English.
 - Start with Windows: start EdgeTuck when the current user logs in.
+- Automatically check for updates: Never, Daily, or Weekly. New installs default
+  to Weekly. Automatic checks only fetch update metadata and never download or
+  install updates without your click.
 
 Click Apply to save changes. Settings are stored under:
 
@@ -131,7 +137,8 @@ the registry value after validation if you do not want to keep that path.
 
 ## Updates
 
-Open Settings and use Check for updates.
+Open Settings and use Check for updates, or leave automatic checks enabled.
+New installs check for update metadata at most once per week.
 
 The app reads this update manifest:
 
@@ -139,12 +146,16 @@ The app reads this update manifest:
 https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest.json
 ```
 
-When a newer version is available, EdgeTuck can download `EdgeTuckSetup.exe`,
-verify its SHA-256 hash from the manifest, launch the installer, and quit the
-running app. A successful update check also refreshes the settings-page software
-name and introduction from the manifest branding metadata. Updates are
-user-triggered from Settings; the app does not require an account or background
-cloud service.
+When a newer version is available, EdgeTuck shows the target version, release
+date, installer size, SHA-256 summary, mandatory flag, and release notes before
+installation. You must confirm before it downloads `EdgeTuckSetup.exe`. The
+installer is launched only after SHA-256 and byte-size validation pass, and the
+running app then quits so Setup can replace files.
+
+After the updated app starts successfully, EdgeTuck shows a one-time tray notice
+with the installed version. A successful update check also refreshes the
+settings-page software name and introduction from the manifest branding
+metadata. The app does not require an account, telemetry, or cloud service.
 
 ## Uninstall
 
@@ -156,7 +167,8 @@ Settings > Apps > Installed apps > EdgeTuck > Uninstall
 
 The installer uninstall removes the installed program files and shortcuts. It
 also removes the `EdgeTuck` Start with Windows Run value. For upgrades from
-older builds, it also removes the legacy `DropShelf` Run value if it exists.
+older builds, it also removes the legacy `DropShelf` Run value and stale
+`DropShelf` Start Menu or desktop shortcuts if they exist.
 
 User data may remain under:
 
@@ -201,6 +213,14 @@ Build the installer only when packaging validation is needed:
 
 ```powershell
 & "D:\Program Files (x86)\Inno Setup 6\ISCC.exe" .\installer\DropShelf.iss
+```
+
+Formal releases should use the signed packaging script:
+
+```powershell
+$env:EDGE_TUCK_SIGN_CERT_PATH = "C:\path\to\certificate.pfx"
+$env:EDGE_TUCK_SIGN_CERT_PASSWORD = "<certificate password>"
+.\scripts\package-release.ps1
 ```
 
 Development notes:

@@ -50,5 +50,15 @@ chinesesimp.AdditionalShortcuts=附加快捷方式:
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#MyAppName}"; Flags: uninsdeletevalue dontcreatekey
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "DropShelf"; Flags: uninsdeletevalue dontcreatekey
 
+[InstallDelete]
+Type: files; Name: "{userdesktop}\DropShelf.lnk"
+Type: files; Name: "{group}\DropShelf.lnk"
+Type: filesandordirs; Name: "{userprograms}\DropShelf"
+
+[UninstallDelete]
+Type: files; Name: "{userdesktop}\DropShelf.lnk"
+Type: files; Name: "{group}\DropShelf.lnk"
+Type: filesandordirs; Name: "{userprograms}\DropShelf"
+
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent

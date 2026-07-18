@@ -27,10 +27,49 @@ public sealed class UpdateServiceTests
             new Uri("https://example.com/latest.json"),
             Path.Combine(tempDirectory.Path, "updates"));
 
-        var installerPath = await updateService.DownloadInstallerAsync(manifest);
+        var result = await updateService.DownloadInstallerAsync(manifest);
 
-        Assert.AreEqual("EdgeTuckSetup.exe", Path.GetFileName(installerPath));
-        Assert.IsTrue(File.Exists(installerPath));
+        Assert.AreEqual("EdgeTuckSetup.exe", Path.GetFileName(result.InstallerPath));
+        Assert.AreEqual("0.2.0", result.Version);
+        Assert.AreEqual(manifest.Sha256, result.Sha256);
+        Assert.AreEqual(installerBytes.Length, result.SizeBytes);
+        Assert.IsTrue(File.Exists(result.InstallerPath));
+    }
+
+    [TestMethod]
+    public async Task DownloadInstallerAsync_DeletesTempFileWhenChecksumDoesNotMatch()
+    {
+        using var tempDirectory = new TempDirectory();
+        var manifest = new UpdateManifest
+        {
+            Version = "0.2.0",
+            InstallerUrl = "https://example.com/releases/EdgeTuckSetup.exe",
+            Sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            SizeBytes = 9,
+        };
+        var updatesRoot = Path.Combine(tempDirectory.Path, "updates");
+        var updateService = new UpdateService(
+            new HttpClient(new StubHttpMessageHandler(Encoding.UTF8.GetBytes("installer"))),
+            new Uri("https://example.com/latest.json"),
+            updatesRoot);
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => updateService.DownloadInstallerAsync(manifest));
+
+        Assert.IsFalse(File.Exists(Path.Combine(updatesRoot, "0.2.0", "EdgeTuckSetup.exe.download")));
+        Assert.IsFalse(File.Exists(Path.Combine(updatesRoot, "0.2.0", "EdgeTuckSetup.exe")));
+    }
+
+    [TestMethod]
+    public void Validate_RequiresPositiveInstallerSize()
+    {
+        var manifest = new UpdateManifest
+        {
+            Version = "0.2.0",
+            InstallerUrl = "https://example.com/releases/EdgeTuckSetup.exe",
+            Sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        };
+
+        Assert.ThrowsExactly<InvalidDataException>(manifest.Validate);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

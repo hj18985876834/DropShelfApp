@@ -53,7 +53,7 @@ public sealed class UpdateService
             : UpdateCheckResult.NotAvailable(manifest);
     }
 
-    public async Task<string> DownloadInstallerAsync(UpdateManifest manifest, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<DownloadedInstallerResult> DownloadInstallerAsync(UpdateManifest manifest, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
     {
         manifest.Validate();
         var version = AppVersion.Parse(manifest.Version);
@@ -79,9 +79,16 @@ public sealed class UpdateService
             throw new InvalidDataException("Downloaded installer checksum does not match the update manifest.");
         }
 
+        var actualSizeBytes = new FileInfo(tempPath).Length;
+        if (manifest.SizeBytes is { } expectedSizeBytes && actualSizeBytes != expectedSizeBytes)
+        {
+            File.Delete(tempPath);
+            throw new InvalidDataException("Downloaded installer size does not match the update manifest.");
+        }
+
         File.Move(tempPath, targetPath, overwrite: true);
         progress?.Report(1);
-        return targetPath;
+        return new DownloadedInstallerResult(targetPath, manifest.Version, actualHash, actualSizeBytes);
     }
 
     public void LaunchInstaller(string installerPath)
@@ -179,7 +186,7 @@ public sealed class UpdateManifest
     {
         _ = AppVersion.Parse(Version);
         if (!Uri.TryCreate(InstallerUrl, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            uri.Scheme != Uri.UriSchemeHttps)
         {
             throw new InvalidDataException("Update manifest installerUrl is invalid.");
         }
@@ -189,7 +196,7 @@ public sealed class UpdateManifest
             throw new InvalidDataException("Update manifest sha256 is invalid.");
         }
 
-        if (SizeBytes is < 0)
+        if (SizeBytes is null or <= 0)
         {
             throw new InvalidDataException("Update manifest sizeBytes is invalid.");
         }
@@ -205,6 +212,12 @@ public sealed class UpdateManifest
         return fallback ?? string.Empty;
     }
 }
+
+public sealed record DownloadedInstallerResult(
+    string InstallerPath,
+    string Version,
+    string Sha256,
+    long SizeBytes);
 
 public sealed class UpdateReleaseNotes
 {

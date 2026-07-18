@@ -12,6 +12,19 @@ Required tools:
 
 * .NET SDK that can build `net10.0-windows`
 * Inno Setup 6 at `D:\Program Files (x86)\Inno Setup 6\ISCC.exe`
+* Windows SDK `signtool.exe`
+* An Authenticode code-signing certificate available to the release machine
+
+The release packaging script reads signing configuration from environment variables:
+
+```powershell
+$env:EDGE_TUCK_SIGN_CERT_PATH = "C:\path\to\certificate.pfx"
+$env:EDGE_TUCK_SIGN_CERT_PASSWORD = "<certificate password>"
+$env:EDGE_TUCK_TIMESTAMP_URL = "http://timestamp.digicert.com"
+```
+
+`EDGE_TUCK_TIMESTAMP_URL` is optional and defaults to DigiCert's timestamp server.
+Do not commit certificates, certificate passwords, or machine-specific signing paths.
 
 The shared product icon lives at:
 
@@ -71,7 +84,25 @@ The installer script reads files from `artifacts\publish\win-x64`. The expected 
 artifacts\publish\win-x64\DropShelf.App.exe
 ```
 
-## Build Installer
+## Sign And Build Installer
+
+For formal releases, prefer the packaging script so signing and verification cannot be skipped:
+
+```powershell
+.\scripts\package-release.ps1
+```
+
+The script:
+
+1. Publishes the self-contained Windows x64 app.
+2. Signs `artifacts\publish\win-x64\DropShelf.App.exe`.
+3. Verifies the app signature with `signtool verify /pa /tw /v`.
+4. Compiles the Inno Setup installer.
+5. Signs `installer\Output\EdgeTuckSetup.exe`.
+6. Verifies the installer signature.
+7. Prints the installer byte size and SHA256 for `updates/latest.json`.
+
+Manual compilation is still useful for local installer iteration.
 
 Compile the Inno Setup script:
 
@@ -85,7 +116,7 @@ The installer output is:
 installer\Output\EdgeTuckSetup.exe
 ```
 
-After compilation, record the installer size and SHA256:
+After compilation and signing, record the installer size and SHA256:
 
 ```bash
 sha256sum installer/Output/EdgeTuckSetup.exe
@@ -105,12 +136,14 @@ The installer is intentionally per-user:
 * Its setup UI supports English and Simplified Chinese.
 * It does not enable startup with Windows. Startup remains controlled by the app setting backed by the HKCU Run key.
 * It keeps the install directory fixed and does not offer a custom directory page in V1.
+* It removes legacy `DropShelf` Start Menu and desktop shortcuts during install so renamed upgrades do not leave stale entry points.
 
 If EdgeTuck is already running, Setup or Uninstall detects the app mutex and asks the user to close the app before continuing.
 
 ## Uninstall Behavior
 
 Uninstall removes the installed files and shortcuts created by the installer.
+It also removes legacy `DropShelf` Start Menu and desktop shortcuts left by pre-rename builds.
 
 Uninstall also removes the app's HKCU startup value:
 
@@ -128,9 +161,9 @@ User data is intentionally preserved:
 
 Do not add uninstall rules that delete this directory unless the product requirements change.
 
-## Manual Update Contract
+## Update Contract
 
-EdgeTuck uses a manual GitHub-based update flow. The app does not silently update in the background.
+EdgeTuck uses a GitHub-based update flow. The app may automatically check for update metadata, but it does not silently download or install updates in the background.
 
 The app fetches this manifest from the `main` branch:
 
@@ -165,12 +198,12 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
 Manifest rules:
 
 * `version` is the semantic app version without the `v` prefix.
-* `installerUrl` must point to the GitHub Release asset, not a commit page, branch page, or raw repository file.
+* `installerUrl` must use HTTPS and point to the GitHub Release asset, not a commit page, branch page, or raw repository file.
 * `sha256` must match the uploaded `EdgeTuckSetup.exe` exactly.
 * `sizeBytes` must match the uploaded asset exactly.
 * `branding.displayName` and bilingual `branding.descriptions` drive the settings-page software name and introduction after a successful update check, even when no newer version is available.
 * `releaseNotes` must include both `zh-CN` and `en-US`.
-* If GitHub is unreachable, the app should show a check-update failure message and make no local changes.
+* If GitHub is unreachable during a manual check, the app should show a check-update failure message and make no local changes except non-user-visible automatic check throttling timestamps.
 
 The app compares the local application version against the manifest version. If the manifest version is newer, it downloads the installer to:
 
@@ -178,7 +211,19 @@ The app compares the local application version against the manifest version. If 
 %LOCALAPPDATA%\DropShelf\updates\<version>\<installer file name from manifest URL>
 ```
 
-The downloaded file is launched only after SHA256 verification succeeds.
+The settings page shows the target version, release date, installer size, mandatory flag, SHA256 summary, and localized release notes before installation.
+The user must confirm installation before EdgeTuck downloads the installer.
+The downloaded file is launched only after SHA256 and byte-size verification succeeds.
+Before launching the installer, the app stores the pending update version under `%LOCALAPPDATA%\DropShelf\settings.json`.
+On the first successful launch of the updated version, EdgeTuck shows a tray notification once and clears the pending update marker.
+
+Automatic update-check policy lives in `AppSettings.AutoUpdateCheckMode`:
+
+* `Never`: no automatic manifest checks.
+* `Daily`: at most once every 24 hours.
+* `Weekly`: at most once every 7 days and the default for new installs.
+
+Automatic checks only fetch the manifest. They never download the installer and never launch setup without the user's click.
 
 ## GitHub Release Procedure
 
@@ -193,16 +238,15 @@ For each release:
 1. Update app and installer version metadata.
 2. Run the quality gate.
 3. Clean generated output.
-4. Publish the self-contained `win-x64` app.
-5. Build `installer\Output\EdgeTuckSetup.exe`.
-6. Compute installer size and SHA256.
-7. Update `updates/latest.json` with the new version, asset URL, SHA256, size, release date, bilingual branding, and bilingual notes.
-8. Commit and push all source, installer script, docs, and manifest changes to `main`.
-9. Create a GitHub Release with tag `v<version>` targeting the latest `main` commit.
-10. Upload the exact `EdgeTuckSetup.exe` that was hashed.
-11. Verify the GitHub Release asset size and SHA256 match `updates/latest.json`.
-12. Verify the raw manifest URL returns the committed manifest.
-13. Ask the user to run the update flow and confirm the latest version installs.
+4. Run `.\scripts\package-release.ps1` to publish, sign, build, sign the installer, verify signatures, and compute installer size/SHA256.
+5. Confirm both the app executable and installer pass `signtool verify /pa /tw /v`.
+6. Update `updates/latest.json` with the new version, asset URL, signed installer SHA256, size, release date, bilingual branding, and bilingual notes.
+7. Commit and push all source, installer script, docs, and manifest changes to `main`.
+8. Create a GitHub Release with tag `v<version>` targeting the latest `main` commit.
+9. Upload the exact `EdgeTuckSetup.exe` that was hashed.
+10. Verify the GitHub Release asset size and SHA256 match `updates/latest.json`.
+11. Verify the raw manifest URL returns the committed manifest.
+12. Ask the user to run the update flow and confirm the latest version installs.
 
 If GitHub's default branch is not `main`, switch it before publishing:
 

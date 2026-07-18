@@ -17,5 +17,9 @@ public sealed class AppSettingsTests
         Assert.AreEqual(LanguageMode.Chinese, settings.LanguageMode);
         Assert.IsFalse(settings.StartWithWindows);
         Assert.IsFalse(settings.IsShelfPinned);
+        Assert.AreEqual(AutoUpdateCheckMode.Weekly, settings.AutoUpdateCheckMode);
+        Assert.IsNull(settings.LastAutomaticUpdateCheckUtc);
+        Assert.IsNull(settings.PendingUpdateVersion);
+        Assert.IsNull(settings.LastUpdateCompletedVersion);
     }
 }

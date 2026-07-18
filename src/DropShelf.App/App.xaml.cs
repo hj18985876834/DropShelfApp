@@ -33,7 +33,9 @@ public partial class App : System.Windows.Application
     private ThemeService? _themeService;
     private LocalizationService? _localizationService;
     private UpdateService? _updateService;
+    private AutomaticUpdateCheckService? _automaticUpdateCheckService;
     private TrayIconService? _trayIconService;
+    private UpdateManifest? _knownAvailableUpdate;
     private bool _isShuttingDown;
     private bool _isHandleDragging;
     private bool _isHoverExpanded;
@@ -77,6 +79,7 @@ public partial class App : System.Windows.Application
         _startupService = new StartupService();
         _themeService = new ThemeService();
         _updateService = new UpdateService(appDataRoot);
+        _automaticUpdateCheckService = new AutomaticUpdateCheckService(_updateService);
 
         _settings = _settingsStore.LoadAsync().GetAwaiter().GetResult();
         _settings = new AppSettings
@@ -88,6 +91,10 @@ public partial class App : System.Windows.Application
             LanguageMode = _settings.LanguageMode,
             StartWithWindows = _startupService.IsEnabled(),
             IsShelfPinned = _settings.IsShelfPinned,
+            AutoUpdateCheckMode = _settings.AutoUpdateCheckMode,
+            LastAutomaticUpdateCheckUtc = _settings.LastAutomaticUpdateCheckUtc,
+            PendingUpdateVersion = _settings.PendingUpdateVersion,
+            LastUpdateCompletedVersion = _settings.LastUpdateCompletedVersion,
         };
         _themeService.Apply(this, _settings);
         _localizationService = new LocalizationService(_settings.LanguageMode);
@@ -174,6 +181,7 @@ public partial class App : System.Windows.Application
             ShutdownApplication,
             _localizationService);
         _startupLogService.Write("Startup complete.");
+        _ = RunPostStartupUpdateTasksAsync();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -294,7 +302,9 @@ public partial class App : System.Windows.Application
                 _startupService,
                 _updateService,
                 ShutdownApplication,
-                ApplySettings),
+                ApplySettings,
+                ConfirmUpdateInstall,
+                _knownAvailableUpdate),
         };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
@@ -330,6 +340,109 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBoxResult.No);
 
         return result == System.Windows.MessageBoxResult.Yes;
+    }
+
+    private bool ConfirmUpdateInstall(string title, string message)
+    {
+        var result = System.Windows.MessageBox.Show(
+            message,
+            title,
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Information,
+            System.Windows.MessageBoxResult.No);
+
+        return result == System.Windows.MessageBoxResult.Yes;
+    }
+
+    private async Task RunPostStartupUpdateTasksAsync()
+    {
+        await ShowUpdateCompletedNoticeIfNeededAsync();
+        await RunAutomaticUpdateCheckAsync();
+    }
+
+    private async Task RunAutomaticUpdateCheckAsync()
+    {
+        if (_automaticUpdateCheckService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await _automaticUpdateCheckService.CheckAsync(_settings, SettingsViewModel.GetApplicationVersion());
+            if (!result.DidCheck)
+            {
+                return;
+            }
+
+            _settings = result.Settings;
+            await SaveCurrentSettingsAsync("Automatic update check settings save failed");
+            if (!result.IsUpdateAvailable || result.Manifest is null)
+            {
+                return;
+            }
+
+            _knownAvailableUpdate = result.Manifest;
+            var localizationService = _localizationService ?? new LocalizationService(_settings.LanguageMode);
+            var texts = localizationService.Text;
+            _trayIconService?.ShowInfo(
+                texts.AutomaticUpdateAvailableTitle,
+                string.Format(System.Globalization.CultureInfo.CurrentCulture, texts.AutomaticUpdateAvailableMessageFormat, result.Manifest.Version));
+
+            if (_settingsWindow?.DataContext is SettingsViewModel settingsViewModel)
+            {
+                settingsViewModel.ApplyAvailableUpdate(result.Manifest, updateStatus: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+            _startupLogService?.WriteException(ex, "Automatic update check failed");
+        }
+    }
+
+    private async Task ShowUpdateCompletedNoticeIfNeededAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_settings.PendingUpdateVersion))
+        {
+            return;
+        }
+
+        var currentVersion = SettingsViewModel.GetApplicationVersion();
+        try
+        {
+            if (AppVersion.Parse(currentVersion).CompareTo(AppVersion.Parse(_settings.PendingUpdateVersion)) < 0 ||
+                string.Equals(_settings.LastUpdateCompletedVersion, _settings.PendingUpdateVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+        catch (FormatException)
+        {
+            return;
+        }
+
+        var completedVersion = _settings.PendingUpdateVersion;
+        _settings = new AppSettings
+        {
+            DockEdge = _settings.DockEdge,
+            DockOffsetRatio = _settings.DockOffsetRatio,
+            ThemeMode = _settings.ThemeMode,
+            DensityMode = _settings.DensityMode,
+            LanguageMode = _settings.LanguageMode,
+            StartWithWindows = _settings.StartWithWindows,
+            IsShelfPinned = _settings.IsShelfPinned,
+            AutoUpdateCheckMode = _settings.AutoUpdateCheckMode,
+            LastAutomaticUpdateCheckUtc = _settings.LastAutomaticUpdateCheckUtc,
+            PendingUpdateVersion = null,
+            LastUpdateCompletedVersion = completedVersion,
+        };
+
+        var localizationService = _localizationService ?? new LocalizationService(_settings.LanguageMode);
+        var texts = localizationService.Text;
+        _trayIconService?.ShowInfo(
+            texts.UpdateCompletedTitle,
+            string.Format(System.Globalization.CultureInfo.CurrentCulture, texts.UpdateCompletedMessageFormat, completedVersion));
+        await SaveCurrentSettingsAsync("Update completed settings save failed");
     }
 
     private string? SelectRelinkPath(ShelfItem item)
@@ -386,6 +499,7 @@ public partial class App : System.Windows.Application
     {
         ArgumentNullException.ThrowIfNull(settings);
         var shouldRestoreCurrentPinState = settings.IsShelfPinned != _settings.IsShelfPinned;
+        var mergedLastAutomaticUpdateCheckUtc = LatestUtc(_settings.LastAutomaticUpdateCheckUtc, settings.LastAutomaticUpdateCheckUtc);
         _settings = new AppSettings
         {
             DockEdge = settings.DockEdge,
@@ -395,6 +509,10 @@ public partial class App : System.Windows.Application
             LanguageMode = settings.LanguageMode,
             StartWithWindows = settings.StartWithWindows,
             IsShelfPinned = _settings.IsShelfPinned,
+            AutoUpdateCheckMode = settings.AutoUpdateCheckMode,
+            LastAutomaticUpdateCheckUtc = mergedLastAutomaticUpdateCheckUtc,
+            PendingUpdateVersion = FirstNonEmpty(_settings.PendingUpdateVersion, settings.PendingUpdateVersion),
+            LastUpdateCompletedVersion = FirstNonEmpty(_settings.LastUpdateCompletedVersion, settings.LastUpdateCompletedVersion),
         };
         _localizationService?.SetLanguage(_settings.LanguageMode);
         _themeService?.Apply(this, _settings);
@@ -418,6 +536,10 @@ public partial class App : System.Windows.Application
             LanguageMode = _settings.LanguageMode,
             StartWithWindows = _settings.StartWithWindows,
             IsShelfPinned = _settings.IsShelfPinned,
+            AutoUpdateCheckMode = _settings.AutoUpdateCheckMode,
+            LastAutomaticUpdateCheckUtc = _settings.LastAutomaticUpdateCheckUtc,
+            PendingUpdateVersion = _settings.PendingUpdateVersion,
+            LastUpdateCompletedVersion = _settings.LastUpdateCompletedVersion,
         };
         _shelfWindow?.ApplySettings(_settings);
     }
@@ -627,6 +749,10 @@ public partial class App : System.Windows.Application
             LanguageMode = _settings.LanguageMode,
             StartWithWindows = _settings.StartWithWindows,
             IsShelfPinned = isPinned,
+            AutoUpdateCheckMode = _settings.AutoUpdateCheckMode,
+            LastAutomaticUpdateCheckUtc = _settings.LastAutomaticUpdateCheckUtc,
+            PendingUpdateVersion = _settings.PendingUpdateVersion,
+            LastUpdateCompletedVersion = _settings.LastUpdateCompletedVersion,
         };
 
         if (isPinned)
@@ -657,6 +783,28 @@ public partial class App : System.Windows.Application
         {
             _startupLogService?.WriteException(ex, failureContext);
         }
+    }
+
+    private static DateTimeOffset? LatestUtc(DateTimeOffset? first, DateTimeOffset? second)
+    {
+        if (first is null)
+        {
+            return second?.ToUniversalTime();
+        }
+
+        if (second is null)
+        {
+            return first.Value.ToUniversalTime();
+        }
+
+        var firstUtc = first.Value.ToUniversalTime();
+        var secondUtc = second.Value.ToUniversalTime();
+        return firstUtc >= secondUtc ? firstUtc : secondUtc;
+    }
+
+    private static string? FirstNonEmpty(string? first, string? second)
+    {
+        return !string.IsNullOrWhiteSpace(first) ? first : second;
     }
 
     private void DisposeTrayIcon()
