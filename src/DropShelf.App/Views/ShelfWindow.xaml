@@ -219,6 +219,9 @@
                                   Command="{Binding OpenCommand}" />
                         <MenuItem Header="{Binding ContextRevealText}"
                                   Command="{Binding RevealCommand}" />
+                        <MenuItem Header="{Binding ContextRelinkText}"
+                                  Command="{Binding RelinkCommand}"
+                                  Visibility="{Binding CanRelink, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <Separator />
                         <MenuItem Header="{Binding ContextRemoveText}"
                                   Command="{Binding RemoveCommand}" />
@@ -242,6 +245,9 @@
                             <DataTrigger Binding="{Binding IsMissing}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
                                 <Setter Property="Background" Value="{DynamicResource DropShelfWarningBackgroundBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsDuplicate}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding IsReordering}" Value="True">
                                 <Setter Property="Panel.ZIndex" Value="20" />
@@ -378,6 +384,22 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <TextBlock Text="{Binding DuplicateSourceText}"
+                                   Margin="{DynamicResource DropShelfCardTextGap}"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DropShelfWarningTextBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDuplicate}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Text="{Binding StatusMessage}"
                                    Margin="{DynamicResource DropShelfCardTextGap}"
                                    FontSize="{DynamicResource DropShelfBodyFontSize}"
@@ -491,7 +513,14 @@
                         <Button Content="&#xE74D;"
                                 Command="{Binding ClearAllCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"
-                                ToolTip="{Binding ClearAllTooltip}" />
+                                ToolTip="{Binding ClearAllTooltip}">
+                            <Button.ContextMenu>
+                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <MenuItem Header="{Binding ClearInvalidTooltip}"
+                                              Command="{Binding ClearInvalidCommand}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                         <Button Content="&#xE713;"
                                 Command="{Binding OpenSettingsCommand}"
                                 Style="{StaticResource HeaderButtonStyle}"
@@ -753,6 +782,25 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
+                        </Border>
+
+                        <Border HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                MaxWidth="280"
+                                Margin="12"
+                                Padding="12,9"
+                                Background="{DynamicResource DropShelfWarningBackgroundBrush}"
+                                BorderBrush="{DynamicResource DropShelfWarningTextBrush}"
+                                BorderThickness="1"
+                                CornerRadius="7"
+                                Panel.ZIndex="30"
+                                Visibility="{Binding HasShelfStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding ShelfStatusMessage}"
+                                       FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DropShelfWarningTextBrush}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
                         </Border>
                     </Grid>
                 </Border>

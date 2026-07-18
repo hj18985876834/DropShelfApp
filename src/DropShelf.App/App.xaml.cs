@@ -106,6 +106,7 @@ public partial class App : System.Windows.Application
             clipboardService,
             imageStore,
             ConfirmClearAll,
+            SelectRelinkPath,
             _localizationService,
             _settings.DensityMode,
             _settings.ThemeMode,
@@ -329,6 +330,56 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBoxResult.No);
 
         return result == System.Windows.MessageBoxResult.Yes;
+    }
+
+    private string? SelectRelinkPath(ShelfItem item)
+    {
+        return item.Type switch
+        {
+            ShelfItemType.File => SelectRelinkFilePath(item),
+            ShelfItemType.Folder => SelectRelinkFolderPath(item),
+            _ => null,
+        };
+    }
+
+    private static string? SelectRelinkFilePath(ShelfItem item)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            CheckFileExists = true,
+            Multiselect = false,
+            FileName = item.DisplayName,
+        };
+
+        if (!string.IsNullOrWhiteSpace(item.SourcePath))
+        {
+            var directory = Path.GetDirectoryName(item.SourcePath);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+            {
+                dialog.InitialDirectory = directory;
+            }
+        }
+
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
+
+    private static string? SelectRelinkFolderPath(ShelfItem item)
+    {
+        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            UseDescriptionForTitle = true,
+            Description = item.DisplayName,
+            ShowNewFolderButton = false,
+        };
+
+        if (!string.IsNullOrWhiteSpace(item.SourcePath) && Directory.Exists(item.SourcePath))
+        {
+            dialog.SelectedPath = item.SourcePath;
+        }
+
+        return dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK
+            ? dialog.SelectedPath
+            : null;
     }
 
     private void ApplySettings(AppSettings settings)

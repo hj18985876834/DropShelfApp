@@ -32,7 +32,9 @@ public sealed class ShelfItemViewModel : ObservableObject
     private readonly IFileActionService _fileActionService;
     private readonly LocalizationService _localizationService;
     private readonly Action<ShelfItemViewModel> _remove;
+    private readonly Action<ShelfItemViewModel> _relink;
     private bool _isExpanded;
+    private bool _isDuplicate;
     private bool _isReordering;
     private string? _statusMessage;
 
@@ -41,18 +43,21 @@ public sealed class ShelfItemViewModel : ObservableObject
         IFileActionService fileActionService,
         IClipboardService clipboardService,
         Action<ShelfItemViewModel> remove,
+        Action<ShelfItemViewModel>? relink = null,
         LocalizationService? localizationService = null)
     {
         Item = item ?? throw new ArgumentNullException(nameof(item));
         _fileActionService = fileActionService ?? throw new ArgumentNullException(nameof(fileActionService));
         _clipboardService = clipboardService ?? throw new ArgumentNullException(nameof(clipboardService));
         _remove = remove ?? throw new ArgumentNullException(nameof(remove));
+        _relink = relink ?? (_ => { });
         _localizationService = localizationService ?? new LocalizationService();
 
         CopyCommand = new RelayCommand(_ => Copy(), _ => CanCopy);
         CopyPathCommand = CopyCommand;
         OpenCommand = new RelayCommand(_ => Open(), _ => CanOpen);
         RevealCommand = new RelayCommand(_ => Reveal(), _ => CanUseFileSystemAction);
+        RelinkCommand = new RelayCommand(_ => _relink(this), _ => CanRelink);
         RemoveCommand = new RelayCommand(_ => _remove(this));
     }
 
@@ -144,11 +149,27 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public bool HasActionPath => !string.IsNullOrWhiteSpace(ActionPath);
 
-    public bool Exists => HasActionPath && _fileActionService.PathExists(ActionPath!);
+    public bool Exists => Item.Type switch
+    {
+        ShelfItemType.File => PathIsExistingFile(SourcePath),
+        ShelfItemType.Folder => PathIsExistingDirectory(SourcePath),
+        ShelfItemType.Image => PathIsExistingFile(ActionPath),
+        _ => false,
+    };
 
-    public bool IsMissing => (IsFileSystemItem || Item.Type is ShelfItemType.Image) && !Exists;
+    public bool IsInvalidRecord => (IsFileSystemItem || Item.Type is ShelfItemType.Image) && !Exists;
+
+    public bool IsMissing => IsInvalidRecord;
+
+    public bool IsDuplicate
+    {
+        get => _isDuplicate;
+        private set => SetProperty(ref _isDuplicate, value);
+    }
 
     public bool CanUseFileSystemAction => (IsFileSystemItem || Item.Type is ShelfItemType.Image) && Exists;
+
+    public bool CanRelink => IsFileSystemItem;
 
     public bool CanOpen => CanUseFileSystemAction ||
         Item.Type is ShelfItemType.Url && !string.IsNullOrWhiteSpace(Item.Content);
@@ -173,6 +194,8 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public ICommand RevealCommand { get; }
 
+    public ICommand RelinkCommand { get; }
+
     public ICommand RemoveCommand { get; }
 
     public string DragOutTooltip => _localizationService.Text.DragOutTooltip;
@@ -183,9 +206,15 @@ public sealed class ShelfItemViewModel : ObservableObject
 
     public string ContextRevealText => _localizationService.Text.ContextReveal;
 
+    public string ContextRelinkText => _localizationService.Text.ContextRelink;
+
     public string ContextRemoveText => _localizationService.Text.ContextRemove;
 
-    public string MissingSourceText => _localizationService.Text.MissingSource;
+    public string MissingSourceText => IsFileSystemItem
+        ? _localizationService.Text.MissingSourceAction
+        : _localizationService.Text.MissingSource;
+
+    public string DuplicateSourceText => _localizationService.Text.DuplicateSource;
 
     public string ReorderHandleTooltip => _localizationService.Text.ReorderHandleTooltip;
 
@@ -203,9 +232,16 @@ public sealed class ShelfItemViewModel : ObservableObject
         OnPropertyChanged(nameof(ContextCopyText));
         OnPropertyChanged(nameof(ContextOpenText));
         OnPropertyChanged(nameof(ContextRevealText));
+        OnPropertyChanged(nameof(ContextRelinkText));
         OnPropertyChanged(nameof(ContextRemoveText));
         OnPropertyChanged(nameof(MissingSourceText));
+        OnPropertyChanged(nameof(DuplicateSourceText));
         OnPropertyChanged(nameof(ReorderHandleTooltip));
+    }
+
+    public void SetDuplicate(bool isDuplicate)
+    {
+        IsDuplicate = isDuplicate;
     }
 
     public void SetStatusMessage(string message)
@@ -474,13 +510,57 @@ public sealed class ShelfItemViewModel : ObservableObject
         }
     }
 
+    private static bool PathIsExistingFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            return File.Exists(path);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool PathIsExistingDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Directory.Exists(path);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     private void OnPathStateChanged()
     {
         OnPropertyChanged(nameof(ActionPath));
         OnPropertyChanged(nameof(HasActionPath));
         OnPropertyChanged(nameof(Exists));
+        OnPropertyChanged(nameof(IsInvalidRecord));
         OnPropertyChanged(nameof(IsMissing));
         OnPropertyChanged(nameof(CanUseFileSystemAction));
+        OnPropertyChanged(nameof(CanRelink));
         OnPropertyChanged(nameof(CanOpen));
         OnPropertyChanged(nameof(CanCopy));
         OnPropertyChanged(nameof(ImagePreviewPath));
@@ -496,6 +576,11 @@ public sealed class ShelfItemViewModel : ObservableObject
         if (RevealCommand is RelayCommand revealCommand)
         {
             revealCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RelinkCommand is RelayCommand relinkCommand)
+        {
+            relinkCommand.RaiseCanExecuteChanged();
         }
 
         if (CopyCommand is RelayCommand copyCommand)

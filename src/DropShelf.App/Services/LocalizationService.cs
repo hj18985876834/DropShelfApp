@@ -97,6 +97,34 @@ public sealed class LocalizationService
             : $"Clear {itemCount} shelf item{(itemCount == 1 ? string.Empty : "s")}? Original files will not be deleted.";
     }
 
+    public string AddItemsMessage(int addedCount, int duplicateCount)
+    {
+        if (duplicateCount == 0)
+        {
+            return IsChinese
+                ? $"已添加 {addedCount} 项。"
+                : $"Added {addedCount} item{(addedCount == 1 ? string.Empty : "s")}.";
+        }
+
+        if (addedCount == 0)
+        {
+            return IsChinese
+                ? $"已跳过 {duplicateCount} 个重复路径。"
+                : $"Skipped {duplicateCount} duplicate path{(duplicateCount == 1 ? string.Empty : "s")}.";
+        }
+
+        return IsChinese
+            ? $"已添加 {addedCount} 项，跳过 {duplicateCount} 个重复路径。"
+            : $"Added {addedCount} item{(addedCount == 1 ? string.Empty : "s")}, skipped {duplicateCount} duplicate path{(duplicateCount == 1 ? string.Empty : "s")}.";
+    }
+
+    public string ClearInvalidMessage(int itemCount)
+    {
+        return IsChinese
+            ? $"已清理 {itemCount} 条无效记录。"
+            : $"Cleared {itemCount} invalid record{(itemCount == 1 ? string.Empty : "s")}.";
+    }
+
 }
 
 public sealed record AppText(
@@ -144,6 +172,7 @@ public sealed record AppText(
     string PinShelfTooltip,
     string UnpinShelfTooltip,
     string ClearAllTooltip,
+    string ClearInvalidTooltip,
     string SettingsTooltip,
     string CollapseTooltip,
     string EmptyTitle,
@@ -157,8 +186,11 @@ public sealed record AppText(
     string ContextCopy,
     string ContextOpen,
     string ContextReveal,
+    string ContextRelink,
     string ContextRemove,
     string MissingSource,
+    string MissingSourceAction,
+    string DuplicateSource,
     string HandleTooltip,
     string TrayShowShelf,
     string TrayHideShelf,
@@ -187,6 +219,9 @@ public sealed record AppText(
     string MissingImage,
     string ImageCopyFailed,
     string RevealFailed,
+    string RelinkDuplicate,
+    string RelinkInvalidPath,
+    string RelinkUpdated,
     string DragOutTooLarge,
     string DragOutSizeUnreadable,
     string DragOutSourceMissing,
@@ -237,6 +272,7 @@ public sealed record AppText(
         "固定收纳栏",
         "取消固定收纳栏",
         "清空全部",
+        "清理缺失记录",
         "设置",
         "折叠",
         "暂存架为空",
@@ -250,8 +286,11 @@ public sealed record AppText(
         "复制",
         "打开",
         "在资源管理器中定位",
+        "重新关联...",
         "移除",
         "源文件缺失",
+        "源路径不可用，可重新关联或移除",
+        "重复路径",
         "显示或隐藏 EdgeTuck",
         "显示收纳栏",
         "隐藏收纳栏",
@@ -280,6 +319,9 @@ public sealed record AppText(
         "图片缺失。",
         "图片复制失败。",
         "项目缺失或无法定位。",
+        "该路径已在收纳栏中。",
+        "请选择匹配类型的有效路径。",
+        "已重新关联。",
         "项目过大，无法拖出。最大支持 512 MB。",
         "无法读取项目大小。",
         "源文件缺失。",
@@ -330,6 +372,7 @@ public sealed record AppText(
         "Pin shelf",
         "Unpin shelf",
         "Clear all",
+        "Clear missing records",
         "Settings",
         "Collapse",
         "Shelf is empty",
@@ -343,8 +386,11 @@ public sealed record AppText(
         "Copy",
         "Open",
         "Reveal in Explorer",
+        "Relink...",
         "Remove",
         "Source missing",
+        "Source path is unavailable. Relink or remove it.",
+        "Duplicate path",
         "Show or hide EdgeTuck",
         "Show Shelf",
         "Hide Shelf",
@@ -373,6 +419,9 @@ public sealed record AppText(
         "Image is missing.",
         "Image copy failed.",
         "Item is missing or cannot be revealed.",
+        "That path is already on the shelf.",
+        "Choose a valid path with the same type.",
+        "Relinked.",
         "Item is too large to drag out. Maximum supported size is 512 MB.",
         "Unable to read item size.",
         "Source is missing.",

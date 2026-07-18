@@ -23,6 +23,7 @@ public partial class ShelfWindow : Window
 {
     private static readonly Duration ShellAnimationDuration = new(TimeSpan.FromMilliseconds(140));
     private static readonly TimeSpan DropFeedbackResetDelay = TimeSpan.FromSeconds(1.6);
+    private static readonly TimeSpan ShelfStatusResetDelay = TimeSpan.FromSeconds(3.5);
     private const double MouseWheelDeltaForOneNotch = 120;
     private const double ShelfWheelScrollStep = 32;
 
@@ -35,6 +36,7 @@ public partial class ShelfWindow : Window
     private readonly Action? _internalDragStarted;
     private readonly Action? _internalDragEnded;
     private readonly DispatcherTimer _dropFeedbackResetTimer;
+    private readonly DispatcherTimer _shelfStatusResetTimer;
     private readonly ShelfReorderController _reorderController;
     private Window? _handleWindow;
     private bool _allowClose;
@@ -73,6 +75,8 @@ public partial class ShelfWindow : Window
 
         _dropFeedbackResetTimer = new DispatcherTimer { Interval = DropFeedbackResetDelay };
         _dropFeedbackResetTimer.Tick += (_, _) => ClearDropFeedback();
+        _shelfStatusResetTimer = new DispatcherTimer { Interval = ShelfStatusResetDelay };
+        _shelfStatusResetTimer.Tick += (_, _) => ClearShelfStatusFeedback();
         _reorderController = new ShelfReorderController(
             _viewModel,
             this,
@@ -98,6 +102,10 @@ public partial class ShelfWindow : Window
             else if (args.PropertyName == nameof(ShelfViewModel.ActiveFilter))
             {
                 _reorderController.Cancel();
+            }
+            else if (args.PropertyName == nameof(ShelfViewModel.ShelfStatusMessage))
+            {
+                ScheduleShelfStatusFeedbackReset();
             }
         };
         _viewModel.Items.CollectionChanged += (_, _) => _reorderController.Cancel();
@@ -140,6 +148,8 @@ public partial class ShelfWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _dropFeedbackResetTimer.Stop();
+        _shelfStatusResetTimer.Stop();
         _reorderController.Dispose();
         base.OnClosed(e);
     }
@@ -431,6 +441,21 @@ public partial class ShelfWindow : Window
         _dropFeedbackResetTimer.Stop();
         _viewModel.IsDragOverAccepted = false;
         _viewModel.IsDragOverUnsupported = false;
+    }
+
+    private void ScheduleShelfStatusFeedbackReset()
+    {
+        _shelfStatusResetTimer.Stop();
+        if (!string.IsNullOrWhiteSpace(_viewModel.ShelfStatusMessage))
+        {
+            _shelfStatusResetTimer.Start();
+        }
+    }
+
+    private void ClearShelfStatusFeedback()
+    {
+        _shelfStatusResetTimer.Stop();
+        _viewModel.ClearShelfStatusMessage();
     }
 
     private void PositionPanel()

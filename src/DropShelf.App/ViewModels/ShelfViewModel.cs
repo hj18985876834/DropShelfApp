@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
 using System.Windows.Input;
 using DropShelf.App.Commands;
 using DropShelf.App.Models;
@@ -15,6 +16,7 @@ public sealed class ShelfViewModel : ObservableObject
     private readonly IFileActionService _fileActionService;
     private readonly ImageStore? _imageStore;
     private readonly Func<int, bool>? _confirmClearAll;
+    private readonly Func<ShelfItem, string?>? _selectRelinkPath;
     private readonly LocalizationService _localizationService;
     private readonly DensityMode _densityMode;
     private readonly ThemeMode _themeMode;
@@ -26,6 +28,7 @@ public sealed class ShelfViewModel : ObservableObject
     private bool _isShelfPinned;
     private ShelfFilterMode _activeFilter;
     private ShelfItemViewModel? _selectedItem;
+    private string? _shelfStatusMessage;
 
     public ShelfViewModel(
         Action? openSettings = null,
@@ -34,6 +37,7 @@ public sealed class ShelfViewModel : ObservableObject
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
         Func<int, bool>? confirmClearAll = null,
+        Func<ShelfItem, string?>? selectRelinkPath = null,
         LocalizationService? localizationService = null,
         DensityMode densityMode = DensityMode.Compact,
         ThemeMode themeMode = ThemeMode.System,
@@ -46,6 +50,7 @@ public sealed class ShelfViewModel : ObservableObject
         _clipboardService = clipboardService ?? new ClipboardService();
         _imageStore = imageStore;
         _confirmClearAll = confirmClearAll;
+        _selectRelinkPath = selectRelinkPath;
         _localizationService = localizationService ?? new LocalizationService();
         _densityMode = densityMode;
         _themeMode = themeMode;
@@ -61,6 +66,7 @@ public sealed class ShelfViewModel : ObservableObject
         TogglePinCommand = new RelayCommand(_ => IsShelfPinned = !IsShelfPinned);
         OpenSettingsCommand = new RelayCommand(_ => _openSettings?.Invoke());
         ClearAllCommand = new RelayCommand(_ => ClearAll(), _ => Items.Count > 0);
+        ClearInvalidCommand = new RelayCommand(_ => ClearInvalid(), _ => HasInvalidItems);
         RemoveSelectedCommand = new RelayCommand(_ => RemoveSelected(), _ => SelectedItem is not null);
         CopySelectedCommand = new RelayCommand(_ => CopySelected(), _ => SelectedItem?.CanCopy == true);
         OpenSelectedCommand = new RelayCommand(_ => OpenSelected(), _ => SelectedItem?.CanOpen == true);
@@ -68,7 +74,7 @@ public sealed class ShelfViewModel : ObservableObject
 
         if (initialItems is not null)
         {
-            AddItems(initialItems);
+            AddInitialItems(initialItems);
         }
     }
 
@@ -139,6 +145,14 @@ public sealed class ShelfViewModel : ObservableObject
 
     public int VisibleItemCount => VisibleItems.Count;
 
+    public int InvalidItemCount => Items.Count(item => item.IsInvalidRecord);
+
+    public int DuplicateItemCount => Items.Count(item => item.IsDuplicate);
+
+    public bool HasInvalidItems => InvalidItemCount > 0;
+
+    public bool HasDuplicateItems => DuplicateItemCount > 0;
+
     public bool HasVisibleItems => VisibleItems.Count > 0;
 
     public bool IsNoResults => HasItems && !HasVisibleItems;
@@ -152,6 +166,8 @@ public sealed class ShelfViewModel : ObservableObject
     public string NoResultsDescription => _localizationService.Text.NoResultsDescription;
 
     public string ClearAllTooltip => _localizationService.Text.ClearAllTooltip;
+
+    public string ClearInvalidTooltip => _localizationService.Text.ClearInvalidTooltip;
 
     public string PinShelfTooltip => IsShelfPinned
         ? _localizationService.Text.UnpinShelfTooltip
@@ -180,6 +196,20 @@ public sealed class ShelfViewModel : ObservableObject
     public string DropStateText => IsDragOverUnsupported
         ? UnsupportedContentText
         : ReleaseToAddText;
+
+    public string? ShelfStatusMessage
+    {
+        get => _shelfStatusMessage;
+        private set
+        {
+            if (SetProperty(ref _shelfStatusMessage, value))
+            {
+                OnPropertyChanged(nameof(HasShelfStatusMessage));
+            }
+        }
+    }
+
+    public bool HasShelfStatusMessage => !string.IsNullOrWhiteSpace(ShelfStatusMessage);
 
     public ShelfItemViewModel? SelectedItem
     {
@@ -225,6 +255,8 @@ public sealed class ShelfViewModel : ObservableObject
 
     public ICommand ClearAllCommand { get; }
 
+    public ICommand ClearInvalidCommand { get; }
+
     public ICommand RemoveSelectedCommand { get; }
 
     public ICommand CopySelectedCommand { get; }
@@ -236,18 +268,35 @@ public sealed class ShelfViewModel : ObservableObject
         return Items.Select(item => item.Item);
     }
 
-    public void AddItems(IEnumerable<ShelfItem> items)
+    public ShelfAddResult AddItems(IEnumerable<ShelfItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);
 
         var shouldSelectFirstNewItem = SelectedItem is null;
         ShelfItemViewModel? firstNewItem = null;
+        var addedCount = 0;
+        var duplicateCount = 0;
+        var pathKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var existingItem in Items)
+        {
+            if (TryCreatePathKey(existingItem.Item, out var existingKey))
+            {
+                pathKeys.Add(existingKey);
+            }
+        }
 
         foreach (var item in items)
         {
+            if (TryCreatePathKey(item, out var pathKey) && !pathKeys.Add(pathKey))
+            {
+                duplicateCount++;
+                continue;
+            }
+
             var itemViewModel = CreateItemViewModel(item);
             firstNewItem ??= itemViewModel;
             Items.Add(itemViewModel);
+            addedCount++;
         }
 
         if (shouldSelectFirstNewItem)
@@ -256,6 +305,13 @@ public sealed class ShelfViewModel : ObservableObject
                 ? firstNewItem
                 : VisibleItems.FirstOrDefault();
         }
+
+        if (addedCount > 0 || duplicateCount > 0)
+        {
+            ShelfStatusMessage = _localizationService.AddItemsMessage(addedCount, duplicateCount);
+        }
+
+        return new ShelfAddResult(addedCount, duplicateCount);
     }
 
     public void ClearAll()
@@ -286,9 +342,16 @@ public sealed class ShelfViewModel : ObservableObject
             item.RefreshPathState();
         }
 
+        RefreshDuplicateStates();
         RefreshVisibleItems();
         RaiseCollectionStateChanged();
+        RaiseClearInvalidCommandCanExecuteChanged();
         RaiseSelectedCommandCanExecuteChanged();
+    }
+
+    public void ClearShelfStatusMessage()
+    {
+        ShelfStatusMessage = null;
     }
 
     public void MoveItem(ShelfItemViewModel item, int targetVisibleIndex)
@@ -342,7 +405,22 @@ public sealed class ShelfViewModel : ObservableObject
 
     private ShelfItemViewModel CreateItemViewModel(ShelfItem item)
     {
-        return new ShelfItemViewModel(item, _fileActionService, _clipboardService, RemoveItem, _localizationService);
+        return new ShelfItemViewModel(item, _fileActionService, _clipboardService, RemoveItem, RelinkItem, _localizationService);
+    }
+
+    private void AddInitialItems(IEnumerable<ShelfItem> items)
+    {
+        foreach (var item in items)
+        {
+            Items.Add(CreateItemViewModel(item));
+        }
+
+        RefreshDuplicateStates();
+
+        if (SelectedItem is null)
+        {
+            SelectedItem = VisibleItems.FirstOrDefault();
+        }
     }
 
     private void RemoveItem(ShelfItemViewModel item)
@@ -362,6 +440,64 @@ public sealed class ShelfViewModel : ObservableObject
             SelectedItem = Items.Count == 0
                 ? null
                 : FirstVisibleItemAtOrBefore(itemIndex);
+        }
+    }
+
+    private void RelinkItem(ShelfItemViewModel item)
+    {
+        var itemIndex = Items.IndexOf(item);
+        if (itemIndex < 0 || !item.CanRelink)
+        {
+            return;
+        }
+
+        var newPath = _selectRelinkPath?.Invoke(item.Item);
+        if (string.IsNullOrWhiteSpace(newPath))
+        {
+            return;
+        }
+
+        if (!IsValidRelinkPath(item.Type, newPath))
+        {
+            item.SetStatusMessage(_localizationService.Text.RelinkInvalidPath);
+            item.RefreshPathState();
+            return;
+        }
+
+        var replacement = CreateRelinkedItem(item.Item, newPath);
+        if (WouldDuplicateExistingPath(replacement, item.Item.Id))
+        {
+            item.SetStatusMessage(_localizationService.Text.RelinkDuplicate);
+            item.RefreshPathState();
+            return;
+        }
+
+        var replacementViewModel = CreateItemViewModel(replacement);
+        replacementViewModel.SetStatusMessage(_localizationService.Text.RelinkUpdated);
+        Items[itemIndex] = replacementViewModel;
+        SelectedItem = VisibleItems.Contains(replacementViewModel)
+            ? replacementViewModel
+            : VisibleItems.FirstOrDefault();
+    }
+
+    private void ClearInvalid()
+    {
+        var removedCount = 0;
+        for (var index = Items.Count - 1; index >= 0; index--)
+        {
+            if (!Items[index].IsInvalidRecord)
+            {
+                continue;
+            }
+
+            _imageStore?.DeleteImageFiles(Items[index].Item);
+            Items.RemoveAt(index);
+            removedCount++;
+        }
+
+        if (removedCount > 0)
+        {
+            ShelfStatusMessage = _localizationService.ClearInvalidMessage(removedCount);
         }
     }
 
@@ -387,6 +523,7 @@ public sealed class ShelfViewModel : ObservableObject
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RefreshDuplicateStates();
         RefreshVisibleItems();
         RaiseCollectionStateChanged();
 
@@ -395,7 +532,17 @@ public sealed class ShelfViewModel : ObservableObject
             clearCommand.RaiseCanExecuteChanged();
         }
 
+        RaiseClearInvalidCommandCanExecuteChanged();
         RaiseSelectedCommandCanExecuteChanged();
+    }
+
+    private void RaiseClearInvalidCommandCanExecuteChanged()
+    {
+        if (ClearInvalidCommand is RelayCommand clearInvalidCommand)
+        {
+            clearInvalidCommand.RaiseCanExecuteChanged();
+        }
+
     }
 
     private void OnLanguageChanged(object? sender, EventArgs e)
@@ -406,6 +553,7 @@ public sealed class ShelfViewModel : ObservableObject
         OnPropertyChanged(nameof(NoResultsDescription));
         OnPropertyChanged(nameof(PinShelfTooltip));
         OnPropertyChanged(nameof(ClearAllTooltip));
+        OnPropertyChanged(nameof(ClearInvalidTooltip));
         OnPropertyChanged(nameof(SettingsTooltip));
         OnPropertyChanged(nameof(CollapseTooltip));
         OnPropertyChanged(nameof(EmptyTitle));
@@ -490,6 +638,10 @@ public sealed class ShelfViewModel : ObservableObject
         IsEmpty = Items.Count == 0;
         OnPropertyChanged(nameof(HasItems));
         OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(InvalidItemCount));
+        OnPropertyChanged(nameof(DuplicateItemCount));
+        OnPropertyChanged(nameof(HasInvalidItems));
+        OnPropertyChanged(nameof(HasDuplicateItems));
         OnPropertyChanged(nameof(IsNoResults));
     }
 
@@ -505,6 +657,94 @@ public sealed class ShelfViewModel : ObservableObject
             ShelfFilterMode.Image => _localizationService.Text.FilterImages,
             _ => value.ToString(),
         };
+    }
+
+    private void RefreshDuplicateStates()
+    {
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in Items)
+        {
+            var isDuplicate = TryCreatePathKey(item.Item, out var key) && !seenKeys.Add(key);
+            item.SetDuplicate(isDuplicate);
+        }
+    }
+
+    private bool WouldDuplicateExistingPath(ShelfItem candidate, Guid excludedItemId)
+    {
+        if (!TryCreatePathKey(candidate, out var candidateKey))
+        {
+            return false;
+        }
+
+        return Items.Any(item =>
+            item.Item.Id != excludedItemId &&
+            TryCreatePathKey(item.Item, out var existingKey) &&
+            string.Equals(candidateKey, existingKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static ShelfItem CreateRelinkedItem(ShelfItem current, string newPath)
+    {
+        return new ShelfItem
+        {
+            Id = current.Id,
+            Type = current.Type,
+            DisplayName = GetDisplayName(newPath),
+            SourcePath = newPath,
+            Content = current.Content,
+            ImagePath = current.ImagePath,
+            ThumbnailPath = current.ThumbnailPath,
+            CreatedAt = current.CreatedAt,
+        };
+    }
+
+    private static bool IsValidRelinkPath(ShelfItemType type, string path)
+    {
+        return type switch
+        {
+            ShelfItemType.File => File.Exists(path),
+            ShelfItemType.Folder => Directory.Exists(path),
+            _ => false,
+        };
+    }
+
+    private static bool TryCreatePathKey(ShelfItem item, out string key)
+    {
+        if (item.Type is not (ShelfItemType.File or ShelfItemType.Folder) ||
+            string.IsNullOrWhiteSpace(item.SourcePath))
+        {
+            key = string.Empty;
+            return false;
+        }
+
+        key = $"{item.Type}:{NormalizePathForComparison(item.SourcePath)}";
+        return true;
+    }
+
+    private static string NormalizePathForComparison(string path)
+    {
+        var trimmed = path.Trim();
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(trimmed));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return trimmed.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+    }
+
+    private static string GetDisplayName(string path)
+    {
+        try
+        {
+            var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var fileName = Path.GetFileName(trimmedPath);
+            return string.IsNullOrWhiteSpace(fileName) ? path : fileName;
+        }
+        catch (ArgumentException)
+        {
+            return path;
+        }
     }
 
     private void RaiseSelectedCommandCanExecuteChanged()

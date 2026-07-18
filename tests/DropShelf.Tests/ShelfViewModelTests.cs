@@ -673,6 +673,195 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void FilterModeOptions_ShowOnlyTypeFilters()
+    {
+        var viewModel = CreateViewModel();
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                ShelfFilterMode.All,
+                ShelfFilterMode.File,
+                ShelfFilterMode.Folder,
+                ShelfFilterMode.Text,
+                ShelfFilterMode.Url,
+                ShelfFilterMode.Image,
+            },
+            viewModel.FilterModeOptions.Select(option => option.Value).ToArray());
+    }
+
+    [TestMethod]
+    public void AddItems_SkipsDuplicateFilePaths()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), "duplicate.txt");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "duplicate.txt", SourcePath = filePath },
+        ]);
+
+        var result = viewModel.AddItems(
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "duplicate.txt", SourcePath = filePath },
+        ]);
+
+        Assert.AreEqual(new ShelfAddResult(0, 1), result);
+        Assert.HasCount(1, viewModel.Items);
+        Assert.AreEqual("已跳过 1 个重复路径。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void ClearShelfStatusMessage_HidesTransientShelfFeedback()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), "duplicate.txt");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "duplicate.txt", SourcePath = filePath },
+        ]);
+        viewModel.AddItems(
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "duplicate.txt", SourcePath = filePath },
+        ]);
+
+        viewModel.ClearShelfStatusMessage();
+
+        Assert.IsNull(viewModel.ShelfStatusMessage);
+        Assert.IsFalse(viewModel.HasShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void AddItems_SkipsDuplicatePathsWithinSameBatch()
+    {
+        var folderPath = Path.Combine(Path.GetTempPath(), "duplicate-folder");
+        var viewModel = CreateViewModel();
+
+        var result = viewModel.AddItems(
+        [
+            new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "folder", SourcePath = folderPath },
+            new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "folder", SourcePath = folderPath + Path.DirectorySeparatorChar },
+        ]);
+
+        Assert.AreEqual(new ShelfAddResult(1, 1), result);
+        Assert.HasCount(1, viewModel.Items);
+        Assert.AreEqual("已添加 1 项，跳过 1 个重复路径。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void Constructor_PreservesAndMarksExistingDuplicateRecords()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), "existing-duplicate.txt");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "first", SourcePath = filePath },
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "second", SourcePath = filePath.ToUpperInvariant() },
+        ]);
+
+        Assert.HasCount(2, viewModel.Items);
+        Assert.IsFalse(viewModel.Items[0].IsDuplicate);
+        Assert.IsTrue(viewModel.Items[1].IsDuplicate);
+        Assert.AreEqual(1, viewModel.DuplicateItemCount);
+
+        Assert.HasCount(6, viewModel.FilterModeOptions);
+    }
+
+    [TestMethod]
+    public void InvalidItemCount_TracksInvalidFileSystemItems()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "valid.txt");
+        File.WriteAllText(filePath, "valid");
+        var folderPath = Path.Combine(tempDirectory.Path, "folder");
+        Directory.CreateDirectory(folderPath);
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "valid", SourcePath = filePath },
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "folder-as-file", SourcePath = folderPath },
+            new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "missing", SourcePath = Path.Combine(tempDirectory.Path, "missing-folder") },
+            new ShelfItem { Type = ShelfItemType.Text, DisplayName = "note", Content = "note" },
+        ]);
+
+        Assert.AreEqual(2, viewModel.InvalidItemCount);
+        CollectionAssert.AreEqual(
+            new[] { "folder-as-file", "missing" },
+            viewModel.Items.Where(item => item.IsInvalidRecord).Select(item => item.DisplayName).ToArray());
+        Assert.HasCount(6, viewModel.FilterModeOptions);
+    }
+
+    [TestMethod]
+    public void ClearInvalidCommand_ClearsInvalidItemsOnly()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "valid.txt");
+        File.WriteAllText(filePath, "valid");
+        var missingPath = Path.Combine(tempDirectory.Path, "missing.txt");
+        var viewModel = CreateViewModel(initialItems:
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "valid", SourcePath = filePath },
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "missing", SourcePath = missingPath },
+        ]);
+
+        viewModel.ClearInvalidCommand.Execute(null);
+
+        Assert.HasCount(1, viewModel.Items);
+        Assert.AreEqual("valid", viewModel.Items[0].DisplayName);
+        Assert.IsTrue(File.Exists(filePath));
+        Assert.AreEqual("已清理 1 条无效记录。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void RelinkCommand_UpdatesPathAndPreservesRecordIdentity()
+    {
+        using var tempDirectory = new TempDirectory();
+        var newPath = Path.Combine(tempDirectory.Path, "moved.txt");
+        File.WriteAllText(newPath, "moved");
+        var itemId = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 7, 5, 9, 30, 0, TimeSpan.Zero);
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem
+                {
+                    Id = itemId,
+                    Type = ShelfItemType.File,
+                    DisplayName = "old.txt",
+                    SourcePath = Path.Combine(tempDirectory.Path, "old.txt"),
+                    CreatedAt = createdAt,
+                },
+            ],
+            selectRelinkPath: _ => newPath);
+
+        viewModel.Items[0].RelinkCommand.Execute(null);
+
+        Assert.HasCount(1, viewModel.Items);
+        Assert.AreEqual(itemId, viewModel.Items[0].Item.Id);
+        Assert.AreEqual(createdAt, viewModel.Items[0].Item.CreatedAt);
+        Assert.AreEqual(newPath, viewModel.Items[0].Item.SourcePath);
+        Assert.AreEqual("moved.txt", viewModel.Items[0].Item.DisplayName);
+        Assert.IsFalse(viewModel.Items[0].IsInvalidRecord);
+        Assert.AreEqual("已重新关联。", viewModel.Items[0].StatusMessage);
+    }
+
+    [TestMethod]
+    public void RelinkCommand_RejectsPathThatWouldDuplicateExistingRecord()
+    {
+        using var tempDirectory = new TempDirectory();
+        var existingPath = Path.Combine(tempDirectory.Path, "existing.txt");
+        File.WriteAllText(existingPath, "existing");
+        var missingPath = Path.Combine(tempDirectory.Path, "missing.txt");
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.File, DisplayName = "existing", SourcePath = existingPath },
+                new ShelfItem { Type = ShelfItemType.File, DisplayName = "missing", SourcePath = missingPath },
+            ],
+            selectRelinkPath: _ => existingPath);
+
+        viewModel.Items[1].RelinkCommand.Execute(null);
+
+        Assert.AreEqual(missingPath, viewModel.Items[1].Item.SourcePath);
+        Assert.AreEqual("该路径已在收纳栏中。", viewModel.Items[1].StatusMessage);
+    }
+
+    [TestMethod]
     public void MoveItem_ReordersBackingItemsAndPreservesSelection()
     {
         var items = CreateMixedItems().ToArray();
@@ -759,6 +948,7 @@ public sealed class ShelfViewModelTests
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
         Func<int, bool>? confirmClearAll = null,
+        Func<ShelfItem, string?>? selectRelinkPath = null,
         LocalizationService? localizationService = null,
         bool isShelfPinned = false,
         Action<bool>? pinStateChanged = null)
@@ -769,6 +959,7 @@ public sealed class ShelfViewModelTests
             clipboardService: clipboardService ?? new FakeClipboardService(),
             imageStore: imageStore,
             confirmClearAll: confirmClearAll,
+            selectRelinkPath: selectRelinkPath,
             localizationService: localizationService,
             isShelfPinned: isShelfPinned,
             pinStateChanged: pinStateChanged);
