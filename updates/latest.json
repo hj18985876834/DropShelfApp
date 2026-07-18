@@ -1,9 +1,9 @@
 {
-  "version": "0.1.2",
-  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.2/EdgeTuckSetup.exe",
-  "sha256": "58912f2440c68cab27432d0945759dd69eab1118dfb465ba9f81869a741b3538",
-  "sizeBytes": 51092473,
-  "releaseDate": "2026-07-06",
+  "version": "0.1.3",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.3/EdgeTuckSetup.exe",
+  "sha256": "04b0b1a4131704f49b5000c738ac7b23bb28f600cc7244da3ce008c7cfd52e17",
+  "sizeBytes": 51116729,
+  "releaseDate": "2026-07-18",
   "mandatory": false,
   "branding": {
     "displayName": "EdgeTuck",
@@ -13,7 +13,7 @@
     }
   },
   "releaseNotes": {
-    "zh-CN": "优化收纳栏列表滚动体验，滚轮浏览卡片时更平滑、更容易控制。长文本卡片支持点击展开或收起，可直接在卡片内查看完整内容。新增收纳栏固定按钮，可让收纳栏保持展开，固定状态会自动保存。",
-    "en-US": "Improved shelf list mouse-wheel scrolling for smoother, more controlled card browsing. Added inline expand/collapse for long text cards. Added a pin button to keep the shelf open, with the pinned state saved automatically."
+    "zh-CN": "新增收纳栏筛选，查找和整理卡片更方便。优化卡片拖拽排序，移动卡片时位置更清楚、操作更顺手。改进文件和文件夹卡片，支持在原路径失效后重新关联，并提供更清楚的重复添加、文件操作和异常状态提示。更新流程会先展示说明并由用户确认安装，安装包下载后会校验完整性，升级完成后会提示。升级安装时会清理旧版 DropShelf 快捷方式。",
+    "en-US": "Added shelf filtering so cards are easier to find and organize. Improved card reordering so drag positions are clearer and the interaction feels smoother. Improved file and folder cards with relinking when the original path is no longer available, plus clearer duplicate-add, file-action, and unavailable-state messages. The update flow now shows release notes first and asks for confirmation before installation. Downloaded installers are verified before launch, EdgeTuck shows a notice after the update completes, and upgrade installs clean up legacy DropShelf shortcuts."
   }
 }

@@ -8,7 +8,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).ProviderPath
 $certPath = $env:EDGE_TUCK_SIGN_CERT_PATH
 $certPassword = $env:EDGE_TUCK_SIGN_CERT_PASSWORD
 $timestampUrl = $env:EDGE_TUCK_TIMESTAMP_URL
