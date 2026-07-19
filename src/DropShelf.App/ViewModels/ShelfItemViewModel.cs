@@ -34,6 +34,7 @@ public sealed class ShelfItemViewModel : ObservableObject
     private readonly Action<ShelfItemViewModel> _remove;
     private readonly Action<ShelfItemViewModel> _relink;
     private bool _isExpanded;
+    private bool _isBatchSelected;
     private bool _isDuplicate;
     private bool _isReordering;
     private string? _statusMessage;
@@ -138,6 +139,12 @@ public sealed class ShelfItemViewModel : ObservableObject
     }
 
     public bool IsExpandedContentVisible => HasExpandedContent && IsExpanded;
+
+    public bool IsBatchSelected
+    {
+        get => _isBatchSelected;
+        set => SetProperty(ref _isBatchSelected, value);
+    }
 
     public bool IsReordering
     {

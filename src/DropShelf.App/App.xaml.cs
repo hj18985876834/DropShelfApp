@@ -8,6 +8,7 @@ using DropShelf.App.Models;
 using DropShelf.App.Services;
 using DropShelf.App.ViewModels;
 using DropShelf.App.Views;
+using WpfClipboard = System.Windows.Clipboard;
 
 namespace DropShelf.App;
 
@@ -35,6 +36,9 @@ public partial class App : System.Windows.Application
     private UpdateService? _updateService;
     private AutomaticUpdateCheckService? _automaticUpdateCheckService;
     private TrayIconService? _trayIconService;
+    private GlobalHotkeyService? _globalHotkeyService;
+    private DragDropService? _dragDropService;
+    private ImageStore? _imageStore;
     private UpdateManifest? _knownAvailableUpdate;
     private bool _isShuttingDown;
     private bool _isHandleDragging;
@@ -43,6 +47,7 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _hoverCollapseTimer;
     private ShelfItem[]? _pendingShelfSaveSnapshot;
     private Task? _shelfSaveWorker;
+    private bool _isQuickPasteRunning;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -101,8 +106,8 @@ public partial class App : System.Windows.Application
 
         var shelfItems = _shelfStore.LoadAsync().GetAwaiter().GetResult();
         var dockService = new WindowDockService();
-        var dragDropService = new DragDropService(_localizationService);
-        var imageStore = new ImageStore(appDataRoot);
+        _dragDropService = new DragDropService(_localizationService);
+        _imageStore = new ImageStore(appDataRoot);
         var fileActionService = new FileActionService();
         var clipboardService = new ClipboardService();
 
@@ -111,8 +116,9 @@ public partial class App : System.Windows.Application
             shelfItems,
             fileActionService,
             clipboardService,
-            imageStore,
+            _imageStore,
             ConfirmClearAll,
+            ConfirmRemoveSelected,
             SelectRelinkPath,
             _localizationService,
             _settings.DensityMode,
@@ -131,8 +137,8 @@ public partial class App : System.Windows.Application
         _shelfWindow = new ShelfWindow(
             _shelfViewModel,
             dockService,
-            dragDropService,
-            imageStore,
+            _dragDropService,
+            _imageStore,
             _settings,
             OnShellPointerEntered,
             OnShellPointerLeft,
@@ -146,10 +152,10 @@ public partial class App : System.Windows.Application
             ShowShelfExplicitly,
             UpdateDockPlacement,
             OnHandleDragStarted,
-            data => dragDropService.CanCreateItems(data),
+            data => _dragDropService.CanCreateItems(data),
             async data =>
             {
-                var items = await dragDropService.CreateItemsAsync(data, imageStore);
+                var items = await _dragDropService.CreateItemsAsync(data, _imageStore);
                 if (items.Count > 0)
                 {
                     _shelfViewModel.AddItems(items);
@@ -180,6 +186,7 @@ public partial class App : System.Windows.Application
             OpenSettingsWindow,
             ShutdownApplication,
             _localizationService);
+        RegisterGlobalHotkeys();
         _startupLogService.Write("Startup complete.");
         _ = RunPostStartupUpdateTasksAsync();
     }
@@ -196,6 +203,7 @@ public partial class App : System.Windows.Application
 
         _startupLogService?.Write("Exit.");
         DisposeTrayIcon();
+        DisposeGlobalHotkeys();
         _singleInstanceMutex?.Dispose();
         _shelfSaveSemaphore.Dispose();
         base.OnExit(e);
@@ -319,6 +327,7 @@ public partial class App : System.Windows.Application
         }
 
         _isShuttingDown = true;
+        DisposeGlobalHotkeys();
         DisposeTrayIcon();
         _settingsWindow?.Close();
         _shelfWindow?.ForceClose();
@@ -332,6 +341,21 @@ public partial class App : System.Windows.Application
         var localizationService = _localizationService ?? new LocalizationService(_settings.LanguageMode);
         var texts = localizationService.Text;
         var message = localizationService.ClearAllMessage(itemCount);
+        var result = System.Windows.MessageBox.Show(
+            message,
+            texts.ClearAllTitle,
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning,
+            System.Windows.MessageBoxResult.No);
+
+        return result == System.Windows.MessageBoxResult.Yes;
+    }
+
+    private bool ConfirmRemoveSelected(int itemCount)
+    {
+        var localizationService = _localizationService ?? new LocalizationService(_settings.LanguageMode);
+        var texts = localizationService.Text;
+        var message = localizationService.RemoveSelectedMessage(itemCount);
         var result = System.Windows.MessageBox.Show(
             message,
             texts.ClearAllTitle,
@@ -625,8 +649,96 @@ public partial class App : System.Windows.Application
             ShowShelfFromSecondLaunch();
             handled = true;
         }
+        else if (msg == NativeMethods.WmHotkey)
+        {
+            HandleGlobalHotkey((int)wParam);
+            handled = true;
+        }
 
         return 0;
+    }
+
+    private void RegisterGlobalHotkeys()
+    {
+        if (_handleWindow is null)
+        {
+            return;
+        }
+
+        var handle = new WindowInteropHelper(_handleWindow).Handle;
+        if (handle == 0)
+        {
+            return;
+        }
+
+        _globalHotkeyService = new GlobalHotkeyService(handle);
+        if (_globalHotkeyService.RegisterDefaultHotkeys())
+        {
+            return;
+        }
+
+        var texts = (_localizationService ?? new LocalizationService(_settings.LanguageMode)).Text;
+        _trayIconService?.ShowInfo(texts.HotkeyRegistrationFailedTitle, texts.HotkeyRegistrationFailedMessage);
+        _startupLogService?.Write("One or more global hotkeys failed to register.");
+    }
+
+    private void HandleGlobalHotkey(int hotkeyId)
+    {
+        switch (hotkeyId)
+        {
+            case GlobalHotkeyService.ToggleShelfHotkeyId:
+                ToggleShelfFromHandle();
+                if (_shelfViewModel?.IsShelfVisible == true)
+                {
+                    BringWindowForward(_shelfWindow);
+                    BringWindowForward(_handleWindow);
+                }
+
+                break;
+            case GlobalHotkeyService.QuickPasteHotkeyId:
+                _ = QuickPasteClipboardContentAsync();
+                break;
+        }
+    }
+
+    private async Task QuickPasteClipboardContentAsync()
+    {
+        if (_isQuickPasteRunning || _dragDropService is null || _imageStore is null || _shelfViewModel is null)
+        {
+            return;
+        }
+
+        _isQuickPasteRunning = true;
+        try
+        {
+            var texts = (_localizationService ?? new LocalizationService(_settings.LanguageMode)).Text;
+            var dataObject = WpfClipboard.GetDataObject();
+            if (dataObject is null)
+            {
+                _trayIconService?.ShowInfo(texts.QuickPasteTitle, texts.QuickPasteUnsupported);
+                return;
+            }
+
+            var items = await _dragDropService.CreateItemsAsync(dataObject, _imageStore);
+            if (items.Count == 0)
+            {
+                _trayIconService?.ShowInfo(texts.QuickPasteTitle, texts.QuickPasteUnsupported);
+                return;
+            }
+
+            var result = _shelfViewModel.AddItems(items);
+            _trayIconService?.ShowInfo(texts.QuickPasteTitle, _shelfViewModel.ShelfStatusMessage ?? _localizationService!.AddItemsMessage(result.AddedCount, result.DuplicateCount));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
+        {
+            var texts = (_localizationService ?? new LocalizationService(_settings.LanguageMode)).Text;
+            _trayIconService?.ShowInfo(texts.QuickPasteTitle, texts.QuickPasteFailed);
+            _startupLogService?.WriteException(ex, "Quick paste failed");
+        }
+        finally
+        {
+            _isQuickPasteRunning = false;
+        }
     }
 
     private void HideShelfExplicitly()
@@ -675,7 +787,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        if (_shelfViewModel?.IsShelfPinned == true)
+        if (_shelfViewModel?.IsShelfPinned == true || _shelfWindow?.IsKeyboardFocusWithin == true)
         {
             StopHoverCollapseTimer();
             return;
@@ -693,7 +805,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        if (_shelfViewModel?.IsShelfPinned == true)
+        if (_shelfViewModel?.IsShelfPinned == true || _shelfWindow?.IsKeyboardFocusWithin == true)
         {
             return;
         }
@@ -811,6 +923,12 @@ public partial class App : System.Windows.Application
     {
         _trayIconService?.Dispose();
         _trayIconService = null;
+    }
+
+    private void DisposeGlobalHotkeys()
+    {
+        _globalHotkeyService?.Dispose();
+        _globalHotkeyService = null;
     }
 }
 

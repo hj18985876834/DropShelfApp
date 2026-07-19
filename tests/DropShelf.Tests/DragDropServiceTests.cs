@@ -80,7 +80,7 @@ public sealed class DragDropServiceTests
     }
 
     [TestMethod]
-    public void CreateFileSystemItems_TreatsImageFileAsFileReference()
+    public void CreateFileSystemItems_TreatsImageFileAsImageReference()
     {
         using var tempDirectory = new TempDirectory();
         var imagePath = Path.Combine(tempDirectory.Path, "image.png");
@@ -90,9 +90,9 @@ public sealed class DragDropServiceTests
         var items = service.CreateFileSystemItems([imagePath]);
 
         Assert.HasCount(1, items);
-        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
         Assert.AreEqual(imagePath, items[0].SourcePath);
-        Assert.IsNull(items[0].ImagePath);
+        Assert.AreEqual(imagePath, items[0].ImagePath);
         Assert.IsNull(items[0].ThumbnailPath);
     }
 
@@ -111,7 +111,7 @@ public sealed class DragDropServiceTests
         var items = service.CreateItems(dataObject, new ImageStore(appDataRoot));
 
         Assert.HasCount(1, items);
-        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(ShelfItemType.Image, items[0].Type);
         Assert.AreEqual(filePath, items[0].SourcePath);
     }
 
@@ -264,6 +264,50 @@ public sealed class DragDropServiceTests
         Assert.AreEqual(ShelfItemType.Url, item.Type);
         Assert.AreEqual("https://example.com/path?q=1", item.Content);
         Assert.AreEqual("example.com", item.DisplayName);
+    }
+
+    [TestMethod]
+    public void CreateTextOrUrlItems_CreatesMultipleUrlItemsFromLines()
+    {
+        var service = new DragDropService();
+
+        var items = service.CreateTextOrUrlItems("https://example.com/one\r\nhttps://example.com/two");
+
+        Assert.HasCount(2, items);
+        Assert.IsTrue(items.All(item => item.Type == ShelfItemType.Url));
+        CollectionAssert.AreEqual(
+            new[] { "https://example.com/one", "https://example.com/two" },
+            items.Select(item => item.Content).ToArray());
+    }
+
+    [TestMethod]
+    public void CreateTextOrUrlItems_CreatesFileFolderAndUrlItemsFromStructuredLines()
+    {
+        using var tempDirectory = new TempDirectory();
+        var filePath = Path.Combine(tempDirectory.Path, "report.txt");
+        var folderPath = Path.Combine(tempDirectory.Path, "Assets");
+        File.WriteAllText(filePath, "hello");
+        Directory.CreateDirectory(folderPath);
+        var service = new DragDropService();
+
+        var items = service.CreateTextOrUrlItems($"{filePath}{Environment.NewLine}{folderPath}{Environment.NewLine}https://example.com");
+
+        Assert.HasCount(3, items);
+        Assert.AreEqual(ShelfItemType.File, items[0].Type);
+        Assert.AreEqual(ShelfItemType.Folder, items[1].Type);
+        Assert.AreEqual(ShelfItemType.Url, items[2].Type);
+    }
+
+    [TestMethod]
+    public void CreateTextOrUrlItems_KeepsPlainMultilineTextAsSingleTextItem()
+    {
+        var service = new DragDropService();
+
+        var items = service.CreateTextOrUrlItems("first line\r\nsecond line");
+
+        Assert.HasCount(1, items);
+        Assert.AreEqual(ShelfItemType.Text, items[0].Type);
+        Assert.AreEqual("first line\r\nsecond line", items[0].Content);
     }
 
     [TestMethod]

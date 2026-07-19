@@ -47,6 +47,7 @@ public partial class ShelfWindow : Window
     private ScrollViewer? _shelfItemsScrollViewer;
     private bool _suppressCardClickToggle;
     private bool _wasExpandedByDrag;
+    private ShelfItemViewModel? _selectionAnchorBeforeMouseDown;
 
     public ShelfWindow(
         ShelfViewModel viewModel,
@@ -200,6 +201,13 @@ public partial class ShelfWindow : Window
             _viewModel.CopySelectedCommand.CanExecute(null))
         {
             _viewModel.CopySelectedCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (key == System.Windows.Input.Key.A &&
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
+            _viewModel.HasVisibleItems)
+        {
+            _viewModel.SelectAllVisible();
             e.Handled = true;
         }
         else if (key == System.Windows.Input.Key.V &&
@@ -561,7 +569,7 @@ public partial class ShelfWindow : Window
             return;
         }
 
-        _viewModel.SelectedItem = itemViewModel;
+        _viewModel.SelectOnly(itemViewModel);
         _suppressCardClickToggle = true;
         _reorderController.Begin(handleElement, itemViewModel, e.GetPosition(this));
 
@@ -603,13 +611,20 @@ public partial class ShelfWindow : Window
         e.Handled = _reorderController.End() || e.Handled;
     }
 
-    private void ShelfItem_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void ShelfItem_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (IsFromInteractiveCardElement(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        _selectionAnchorBeforeMouseDown = _viewModel.SelectedItem;
+
         if (e.ClickCount == 2 &&
             sender is FrameworkElement { DataContext: ShelfItemViewModel itemViewModel } &&
             itemViewModel.OpenCommand.CanExecute(null))
         {
-            _viewModel.SelectedItem = itemViewModel;
+            _viewModel.SelectOnly(itemViewModel);
             itemViewModel.OpenCommand.Execute(null);
             _dragStartPoint = null;
             ReleaseMouseCapture(sender);
@@ -623,6 +638,8 @@ public partial class ShelfWindow : Window
         {
             element.CaptureMouse();
         }
+
+        e.Handled = true;
     }
 
     private void ShelfItem_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -630,13 +647,26 @@ public partial class ShelfWindow : Window
         if (!_suppressCardClickToggle &&
             sender is FrameworkElement { DataContext: ShelfItemViewModel itemViewModel })
         {
-            _viewModel.SelectedItem = itemViewModel;
-            itemViewModel.ToggleExpanded();
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                _viewModel.ToggleSelection(itemViewModel);
+            }
+            else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                _viewModel.SelectRangeTo(itemViewModel, _selectionAnchorBeforeMouseDown);
+            }
+            else
+            {
+                _viewModel.SelectOnly(itemViewModel);
+                itemViewModel.ToggleExpanded();
+            }
+
             e.Handled = true;
         }
 
         _dragStartPoint = null;
         _suppressCardClickToggle = false;
+        _selectionAnchorBeforeMouseDown = null;
         ReleaseMouseCapture(sender);
     }
 
@@ -658,6 +688,23 @@ public partial class ShelfWindow : Window
         {
             element.ReleaseMouseCapture();
         }
+    }
+
+    private static bool IsFromInteractiveCardElement(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is System.Windows.Controls.Primitives.ButtonBase ||
+                source is System.Windows.Controls.TextBox ||
+                source is FrameworkElement { Name: "ReorderHandle" })
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
     }
 
     private Border? FindCardForItem(ShelfItemViewModel itemViewModel)

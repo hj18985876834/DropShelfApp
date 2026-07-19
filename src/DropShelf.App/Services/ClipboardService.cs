@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Collections.Specialized;
 using System.Windows.Media.Imaging;
 using WpfClipboard = System.Windows.Clipboard;
 
@@ -10,6 +11,8 @@ public interface IClipboardService
     bool SetText(string text);
 
     bool SetImageFromPath(string path);
+
+    bool SetFileDropList(IEnumerable<string> paths);
 }
 
 public sealed class ClipboardService : IClipboardService
@@ -54,6 +57,37 @@ public sealed class ClipboardService : IClipboardService
             return false;
         }
         catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    public bool SetFileDropList(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        try
+        {
+            var fileDropList = new StringCollection();
+            foreach (var path in paths)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return false;
+                }
+
+                fileDropList.Add(path);
+            }
+
+            if (fileDropList.Count == 0)
+            {
+                return false;
+            }
+
+            WpfClipboard.SetFileDropList(fileDropList);
+            return true;
+        }
+        catch (ExternalException)
         {
             return false;
         }

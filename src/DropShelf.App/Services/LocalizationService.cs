@@ -129,11 +129,124 @@ public sealed class LocalizationService
             : $"Added {addedCount} item{(addedCount == 1 ? string.Empty : "s")}, skipped {duplicateCount} duplicate path{(duplicateCount == 1 ? string.Empty : "s")}.";
     }
 
+    public string AddItemsMessage(IEnumerable<ShelfItem> addedItems, int duplicateCount)
+    {
+        ArgumentNullException.ThrowIfNull(addedItems);
+
+        var items = addedItems.ToArray();
+        if (items.Length == 0)
+        {
+            return AddItemsMessage(0, duplicateCount);
+        }
+
+        var summary = FormatItemTypeSummary(items);
+        if (duplicateCount == 0)
+        {
+            return IsChinese
+                ? $"已添加 {summary}。"
+                : $"Added {summary}.";
+        }
+
+        return IsChinese
+            ? $"已添加 {summary}，跳过 {duplicateCount} 个重复路径。"
+            : $"Added {summary}, skipped {duplicateCount} duplicate path{(duplicateCount == 1 ? string.Empty : "s")}.";
+    }
+
+    private string FormatItemTypeSummary(IReadOnlyCollection<ShelfItem> items)
+    {
+        var parts = items
+            .GroupBy(item => item.Type)
+            .OrderBy(group => ItemTypeSortOrder(group.Key))
+            .Select(group => FormatItemTypeCount(group.Key, group.Count()))
+            .ToArray();
+
+        return string.Join(IsChinese ? "、" : ", ", parts);
+    }
+
+    private string FormatItemTypeCount(ShelfItemType type, int count)
+    {
+        if (IsChinese)
+        {
+            return type switch
+            {
+                ShelfItemType.File => $"{count} 个文件",
+                ShelfItemType.Folder => $"{count} 个文件夹",
+                ShelfItemType.Image => $"{count} 张图片",
+                ShelfItemType.Text => $"{count} 条文本",
+                ShelfItemType.Url => $"{count} 个链接",
+                _ => $"{count} 个项目",
+            };
+        }
+
+        return type switch
+        {
+            ShelfItemType.File => $"{count} file{(count == 1 ? string.Empty : "s")}",
+            ShelfItemType.Folder => $"{count} folder{(count == 1 ? string.Empty : "s")}",
+            ShelfItemType.Image => $"{count} image{(count == 1 ? string.Empty : "s")}",
+            ShelfItemType.Text => $"{count} text item{(count == 1 ? string.Empty : "s")}",
+            ShelfItemType.Url => $"{count} link{(count == 1 ? string.Empty : "s")}",
+            _ => $"{count} item{(count == 1 ? string.Empty : "s")}",
+        };
+    }
+
+    private static int ItemTypeSortOrder(ShelfItemType type)
+    {
+        return type switch
+        {
+            ShelfItemType.File => 0,
+            ShelfItemType.Folder => 1,
+            ShelfItemType.Image => 2,
+            ShelfItemType.Text => 3,
+            ShelfItemType.Url => 4,
+            _ => 5,
+        };
+    }
+
     public string ClearInvalidMessage(int itemCount)
     {
         return IsChinese
             ? $"已清理 {itemCount} 条无效记录。"
             : $"Cleared {itemCount} invalid record{(itemCount == 1 ? string.Empty : "s")}.";
+    }
+
+    public string RemoveSelectedMessage(int itemCount)
+    {
+        return IsChinese
+            ? $"确定要移除选中的 {itemCount} 个暂存项吗？原始文件不会被删除。"
+            : $"Remove {itemCount} selected shelf items? Original files will not be deleted.";
+    }
+
+    public string CopySelectedMessage(int itemCount)
+    {
+        return IsChinese
+            ? $"已复制 {itemCount} 个暂存项。"
+            : $"Copied {itemCount} shelf item{(itemCount == 1 ? string.Empty : "s")}.";
+    }
+
+    public string CopySelectedMessage(ShelfItemType type, int itemCount)
+    {
+        if (IsChinese)
+        {
+            return type switch
+            {
+                ShelfItemType.File => $"已复制 {itemCount} 个文件。",
+                ShelfItemType.Folder => $"已复制 {itemCount} 个文件夹。",
+                ShelfItemType.Image => $"已复制 {itemCount} 张图片。",
+                ShelfItemType.Text => $"已复制 {itemCount} 条文本。",
+                ShelfItemType.Url => $"已复制 {itemCount} 个链接。",
+                _ => CopySelectedMessage(itemCount),
+            };
+        }
+
+        return type switch
+        {
+            ShelfItemType.File => $"Copied {itemCount} file{(itemCount == 1 ? string.Empty : "s")}.",
+            ShelfItemType.Folder => $"Copied {itemCount} folder{(itemCount == 1 ? string.Empty : "s")}.",
+            ShelfItemType.Image => $"Copied {itemCount} image{(itemCount == 1 ? string.Empty : "s")}.",
+            ShelfItemType.Text => $"Copied {itemCount} text item{(itemCount == 1 ? string.Empty : "s")}.",
+            ShelfItemType.Url => $"Copied {itemCount} link{(itemCount == 1 ? string.Empty : "s")}.",
+            _ => CopySelectedMessage(itemCount),
+        };
     }
 
 }
@@ -181,6 +294,11 @@ public sealed record AppText(
     string AutomaticUpdateAvailableMessageFormat,
     string UpdateCompletedTitle,
     string UpdateCompletedMessageFormat,
+    string HotkeyRegistrationFailedTitle,
+    string HotkeyRegistrationFailedMessage,
+    string QuickPasteTitle,
+    string QuickPasteUnsupported,
+    string QuickPasteFailed,
     string DeveloperLabel,
     string ContactLabel,
     string ApplyText,
@@ -191,6 +309,7 @@ public sealed record AppText(
     string SettingsSaveFailed,
     string ShelfItemCountSuffix,
     string FilterLabel,
+    string SearchPlaceholder,
     string FilterAll,
     string FilterFiles,
     string FilterFolders,
@@ -255,6 +374,8 @@ public sealed record AppText(
     string DragOutTooLarge,
     string DragOutSizeUnreadable,
     string DragOutSourceMissing,
+    string MultiCopyMixedTypes,
+    string MultiCopyNoContent,
     string ReorderHandleTooltip)
 {
     public static AppText Chinese { get; } = new(
@@ -300,6 +421,11 @@ public sealed record AppText(
         "发现新版本 {0}。请打开设置查看更新说明并手动安装。",
         "EdgeTuck 已更新",
         "已更新到版本 {0}。",
+        "快捷键不可用",
+        "部分全局快捷键已被其他应用占用，EdgeTuck 会继续运行。",
+        "已快速加入",
+        "当前剪贴板没有可加入的内容。",
+        "无法加入剪贴板内容。",
         "开发者",
         "联系方式",
         "应用",
@@ -310,6 +436,7 @@ public sealed record AppText(
         "无法保存设置。",
         " 项",
         "筛选",
+        "搜索卡片",
         "全部",
         "文件",
         "文件夹",
@@ -374,6 +501,8 @@ public sealed record AppText(
         "项目过大，无法拖出。最大支持 512 MB。",
         "无法读取项目大小。",
         "源文件缺失。",
+        "请选择同一类型的暂存项后再复制。",
+        "选中的暂存项没有可复制的内容。",
         "拖动此区域可排序");
 
     public static AppText English { get; } = new(
@@ -419,6 +548,11 @@ public sealed record AppText(
         "Version {0} is available. Open Settings to review notes and install it manually.",
         "EdgeTuck updated",
         "Updated to version {0}.",
+        "Shortcuts unavailable",
+        "Some global shortcuts are already used by another app. EdgeTuck will keep running.",
+        "Quick paste added",
+        "The current clipboard content cannot be added.",
+        "Unable to add clipboard content.",
         "Developer",
         "Contact",
         "Apply",
@@ -429,6 +563,7 @@ public sealed record AppText(
         "Unable to save settings.",
         " items",
         "Filter",
+        "Search cards",
         "All",
         "Files",
         "Folders",
@@ -493,5 +628,7 @@ public sealed record AppText(
         "Item is too large to drag out. Maximum supported size is 512 MB.",
         "Unable to read item size.",
         "Source is missing.",
+        "Select shelf items of the same type before copying.",
+        "The selected shelf items have no copyable content.",
         "Drag here to reorder");
 }

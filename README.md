@@ -12,12 +12,16 @@ local app data, and does not require an account or cloud service.
 - Edge shelf: a small screen-edge handle shows or hides the shelf.
 - Pin shelf: keep the hover-opened shelf expanded until you hide it manually.
 - Drag in: drop files, folders, text, URLs, and images onto the handle or shelf.
+- Batch import: paste structured lines or use quick paste to add multiple files,
+  folders, images, or links from the clipboard.
 - Drag out: drag shelf cards back to Explorer, Desktop, editors, chat windows,
   or other apps that accept the payload.
-- Card management: filter by item type and reorder cards by dragging the type
-  badge area.
+- Card management: search cards, filter by item type, multi-select visible
+  results, and reorder cards by dragging the type badge area.
 - Quick actions: copy, open, reveal in Explorer, remove one item, or clear all
   records.
+- Fast access: global shortcuts show/hide the shelf or add current clipboard
+  content in the background.
 - Local persistence: shelf records and settings are restored after restart.
 - Settings: shelf position, theme, density, language, Start with Windows, and
   automatic update-check policy.
@@ -64,15 +68,21 @@ to a Windows-local folder before launching.
    after moving the pointer away.
 3. Drag files or folders onto the handle or shelf to create file/folder records.
 4. Copy text, URLs, or screenshots in another app, then paste into EdgeTuck.
+   Structured clipboard text with multiple existing paths or links is imported
+   as separate cards.
 5. Use each card's actions:
    - `Copy`: copy the path, text, URL, or image.
    - `Open`: open the file, folder, URL, or image with Windows defaults.
    - `Reveal`: show file/folder/image location in Explorer.
    - `Remove`: remove the shelf record.
-6. Use the filter control to show all items or one item type.
-7. Drag the type badge area on a card to reorder cards inside the shelf; the
+6. Use the filter control and search box to narrow visible cards.
+7. Use `Ctrl+Click`, `Shift+Click`, or `Ctrl+A` to select multiple visible
+   cards. Mixed-type multi-copy is not supported; EdgeTuck will ask you to
+   select one type before copying. Files, folders, images, text, and links are
+   copied with type-specific clipboard formats.
+8. Drag the type badge area on a card to reorder cards inside the shelf; the
    dragged card lifts visually and cards move dynamically while you drag.
-8. Drag the card body out to another app when you want to reuse it.
+9. Drag the card body out to another app when you want to reuse it.
 
 Removing a file or folder record never deletes the original file or folder.
 Clearing the shelf removes records only. App-owned pasted image files may be
@@ -84,6 +94,11 @@ deleted when their image records are removed.
 - `Delete`: remove the selected item.
 - `Enter`: open the selected item.
 - `Ctrl+C`: copy the selected item.
+- `Ctrl+Click`: add or remove a visible card from the current selection.
+- `Shift+Click`: select a visible range.
+- `Ctrl+A`: select all current visible cards.
+- `Ctrl+Alt+Space`: show or hide EdgeTuck globally.
+- `Ctrl+Alt+V`: add current clipboard content to EdgeTuck in the background.
 - Tray icon double-click: show the shelf.
 - Tray menu: Show Shelf, Hide Shelf, Settings, Quit.
 

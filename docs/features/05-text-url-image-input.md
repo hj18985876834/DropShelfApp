@@ -56,7 +56,8 @@ For pathless clipboard/dragged bitmap data:
 * Save an app-owned original image file under `%LOCALAPPDATA%/DropShelf/images/originals/`.
 * Generate thumbnail under `%LOCALAPPDATA%/DropShelf/images/thumbs/`.
 * Create `ShelfItemType.Image`.
-* Store `ImagePath` and `ThumbnailPath`.
+* Store `ImagePath` and `ThumbnailPath` for app-owned pasted images.
+* External image files keep their original path reference and are shown as image cards without duplicating or deleting the source file.
 * Card shows thumbnail.
 * Removing image item deletes app-owned original and thumbnail.
 

@@ -21,6 +21,26 @@ public sealed class DragDropService
     public const string InternalDragFormat = "DropShelf.InternalDrag";
     private const int DisplayNameMaxLength = 80;
     public const long MaxDragOutBytes = 512L * 1024 * 1024;
+    private static readonly HashSet<string> ImageFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".avif",
+        ".bmp",
+        ".dib",
+        ".gif",
+        ".heic",
+        ".heif",
+        ".ico",
+        ".jfif",
+        ".jpe",
+        ".jpeg",
+        ".jpg",
+        ".png",
+        ".tif",
+        ".tiff",
+        ".webp",
+        ".wdp",
+    };
+
     private static readonly string[] EncodedImageFormats = ["PNG", "JFIF", "TIFF"];
     private static readonly string[] DibImageFormats = [WpfDataFormats.Dib, "DeviceIndependentBitmapV5", "Format17"];
     private static readonly string[] DrawingImageFormats = ["System.Drawing.Bitmap", WpfDataFormats.Bitmap];
@@ -83,8 +103,7 @@ public sealed class DragDropService
             return [imageStore.SaveImage(bitmap)];
         }
 
-        var textItem = CreateTextOrUrlItem(GetText(dataObject));
-        return textItem is null ? [] : [textItem];
+        return CreateTextOrUrlItems(GetText(dataObject));
     }
 
     public async Task<IReadOnlyList<ShelfItem>> CreateItemsAsync(
@@ -111,8 +130,7 @@ public sealed class DragDropService
             return [item];
         }
 
-        var textItem = CreateTextOrUrlItem(GetText(dataObject));
-        return textItem is null ? [] : [textItem];
+        return CreateTextOrUrlItems(GetText(dataObject));
     }
 
     public IReadOnlyList<ShelfItem> CreateFileSystemItems(WpfDataObject dataObject)
@@ -138,25 +156,39 @@ public sealed class DragDropService
                 continue;
             }
 
-            var type = GetItemType(path);
-            if (type is null)
+            var item = CreateFileSystemItem(path);
+            if (item is not null)
             {
-                continue;
+                items.Add(item);
             }
-
-            items.Add(new ShelfItem
-            {
-                Type = type.Value,
-                SourcePath = path,
-                DisplayName = GetDisplayName(path),
-                CreatedAt = DateTimeOffset.UtcNow,
-            });
         }
 
         return items;
     }
 
     public ShelfItem? CreateTextOrUrlItem(string? text)
+    {
+        return CreateSingleTextOrUrlItem(text);
+    }
+
+    public IReadOnlyList<ShelfItem> CreateTextOrUrlItems(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        var lineItems = CreateStructuredLineItems(text);
+        if (lineItems.Count > 0)
+        {
+            return lineItems;
+        }
+
+        var item = CreateSingleTextOrUrlItem(text);
+        return item is null ? [] : [item];
+    }
+
+    private ShelfItem? CreateSingleTextOrUrlItem(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -182,6 +214,87 @@ public sealed class DragDropService
             Content = text,
             CreatedAt = DateTimeOffset.UtcNow,
         };
+    }
+
+    private IReadOnlyList<ShelfItem> CreateStructuredLineItems(string text)
+    {
+        var lines = text
+            .Split(["\r\n", "\n"], StringSplitOptions.None)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToArray();
+        if (lines.Length < 2)
+        {
+            return [];
+        }
+
+        var items = new List<ShelfItem>();
+        foreach (var line in lines)
+        {
+            var fileSystemItem = CreateFileSystemItem(line);
+            if (fileSystemItem is not null)
+            {
+                items.Add(fileSystemItem);
+                continue;
+            }
+
+            if (TryCreateHttpUrl(line, out var uri))
+            {
+                items.Add(new ShelfItem
+                {
+                    Type = ShelfItemType.Url,
+                    DisplayName = uri.Host,
+                    Content = uri.AbsoluteUri,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                });
+                continue;
+            }
+
+            return [];
+        }
+
+        return items;
+    }
+
+    private static ShelfItem? CreateFileSystemItem(string path)
+    {
+        var type = GetItemType(path);
+        if (type is null)
+        {
+            return null;
+        }
+
+        if (type.Value is ShelfItemType.File && IsSupportedImageFile(path))
+        {
+            return new ShelfItem
+            {
+                Type = ShelfItemType.Image,
+                SourcePath = path,
+                ImagePath = path,
+                DisplayName = GetDisplayName(path),
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+        }
+
+        return new ShelfItem
+        {
+            Type = type.Value,
+            SourcePath = path,
+            DisplayName = GetDisplayName(path),
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+    }
+
+    private static bool IsSupportedImageFile(string path)
+    {
+        try
+        {
+            return ImageFileExtensions.Contains(Path.GetExtension(path));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     public bool IsValidUrl(string? text)

@@ -161,6 +161,16 @@
             <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
         </Style>
 
+        <Style x:Key="SearchBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="MinWidth" Value="116" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="FontSize" Value="{DynamicResource DropShelfBodyFontSize}" />
+            <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DropShelfPanelBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DropShelfTextBrush}" />
+        </Style>
+
         <Style x:Key="ShelfListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
@@ -191,7 +201,7 @@
                     Cursor="Hand"
                     Padding="{DynamicResource DropShelfCardPadding}"
                     PreviewMouseMove="ShelfItem_OnPreviewMouseMove"
-                    MouseLeftButtonDown="ShelfItem_OnMouseLeftButtonDown"
+                    PreviewMouseLeftButtonDown="ShelfItem_OnPreviewMouseLeftButtonDown"
                     MouseLeftButtonUp="ShelfItem_OnMouseLeftButtonUp"
                     RenderTransformOrigin="0.5,0.5"
                     SnapsToDevicePixels="True"
@@ -242,6 +252,10 @@
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
                                 <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
                             </DataTrigger>
+                            <DataTrigger Binding="{Binding IsBatchSelected}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource DropShelfAccentBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource DropShelfSurfaceHoverBrush}" />
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsMissing}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource DropShelfWarningTextBrush}" />
                                 <Setter Property="Background" Value="{DynamicResource DropShelfWarningBackgroundBrush}" />
@@ -278,7 +292,8 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0"
+                    <Grid x:Name="ReorderHandle"
+                          Grid.Row="0"
                           Grid.Column="0"
                           Width="{DynamicResource DropShelfTypeBadgeSize}"
                           Height="{DynamicResource DropShelfTypeBadgeSize}"
@@ -551,6 +566,19 @@
                                   SelectedValuePath="Value"
                                   SelectedValue="{Binding ActiveFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   Style="{StaticResource FilterComboStyle}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="8,0,0,0">
+                        <TextBlock Text="{Binding SearchPlaceholder}"
+                                   Margin="0,0,6,0"
+                                   FontSize="{DynamicResource DropShelfBodyFontSize}"
+                                   Foreground="{DynamicResource DropShelfMutedTextBrush}"
+                                   VerticalAlignment="Center" />
+                        <TextBox Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SearchBoxStyle}" />
                     </StackPanel>
                 </Grid>
 

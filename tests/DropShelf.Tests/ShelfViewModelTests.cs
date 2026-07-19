@@ -177,6 +177,28 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void RemoveItemCommand_KeepsExternalImageFile()
+    {
+        using var tempDirectory = new TempDirectory();
+        var imageStore = new ImageStore(Path.Combine(tempDirectory.Path, "app-data"));
+        var imagePath = Path.Combine(tempDirectory.Path, "external.png");
+        File.WriteAllText(imagePath, "image");
+        var item = new ShelfItem
+        {
+            Type = ShelfItemType.Image,
+            DisplayName = "external.png",
+            SourcePath = imagePath,
+            ImagePath = imagePath,
+        };
+        var viewModel = CreateViewModel(initialItems: [item], imageStore: imageStore);
+
+        viewModel.Items[0].RemoveCommand.Execute(null);
+
+        Assert.IsEmpty(viewModel.Items);
+        Assert.IsTrue(File.Exists(imagePath));
+    }
+
+    [TestMethod]
     public void ClearAll_DeletesAppOwnedImageFiles()
     {
         using var tempDirectory = new TempDirectory();
@@ -673,6 +695,70 @@ public sealed class ShelfViewModelTests
     }
 
     [TestMethod]
+    public void SearchQuery_FiltersByDisplayNameContentAndPathWithoutChangingBackingItems()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.SearchQuery = "example";
+
+        Assert.HasCount(1, viewModel.VisibleItems);
+        Assert.AreSame(items[3], viewModel.VisibleItems[0].Item);
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+
+        viewModel.SearchQuery = @"c:\temp";
+
+        Assert.HasCount(3, viewModel.VisibleItems);
+        CollectionAssert.AreEqual(
+            new[] { items[0], items[1], items[4] },
+            viewModel.VisibleItems.Select(item => item.Item).ToArray());
+        CollectionAssert.AreEqual(items, viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void SearchQuery_StacksWithActiveFilter()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.ActiveFilter = ShelfFilterMode.Text;
+        viewModel.SearchQuery = "note";
+
+        Assert.HasCount(1, viewModel.VisibleItems);
+        Assert.AreSame(items[2], viewModel.VisibleItems[0].Item);
+
+        viewModel.SearchQuery = "example";
+
+        Assert.IsFalse(viewModel.HasVisibleItems);
+        Assert.IsTrue(viewModel.IsNoResults);
+        Assert.IsTrue(viewModel.IsSearchActive);
+    }
+
+    [TestMethod]
+    public void SearchQuery_SelectsFirstVisibleItemWhenSelectedItemIsHidden()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+        viewModel.SelectedItem = viewModel.Items[0];
+
+        viewModel.SearchQuery = "note";
+
+        Assert.AreSame(items[2], viewModel.SelectedItem?.Item);
+    }
+
+    [TestMethod]
+    public void SearchQuery_ClearRestoresVisibleItemsInManualOrder()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items);
+
+        viewModel.SearchQuery = "note";
+        viewModel.SearchQuery = string.Empty;
+
+        CollectionAssert.AreEqual(items, viewModel.VisibleItems.Select(item => item.Item).ToArray());
+    }
+
+    [TestMethod]
     public void FilterModeOptions_ShowOnlyTypeFilters()
     {
         var viewModel = CreateViewModel();
@@ -688,6 +774,274 @@ public sealed class ShelfViewModelTests
                 ShelfFilterMode.Image,
             },
             viewModel.FilterModeOptions.Select(option => option.Value).ToArray());
+    }
+
+    [TestMethod]
+    public void SelectOnly_SelectsSingleVisibleItemAndClearsPreviousBatchSelection()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+
+        viewModel.SelectAllVisible();
+        viewModel.SelectOnly(viewModel.VisibleItems[2]);
+
+        Assert.HasCount(1, viewModel.SelectedItems);
+        Assert.AreSame(viewModel.VisibleItems[2], viewModel.SelectedItem);
+        Assert.IsTrue(viewModel.VisibleItems[2].IsBatchSelected);
+        Assert.IsFalse(viewModel.VisibleItems[0].IsBatchSelected);
+    }
+
+    [TestMethod]
+    public void ToggleSelection_TogglesVisibleItemAndKeepsPrimarySelection()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+
+        viewModel.SelectOnly(viewModel.VisibleItems[0]);
+        viewModel.ToggleSelection(viewModel.VisibleItems[2]);
+
+        Assert.HasCount(2, viewModel.SelectedItems);
+        Assert.AreSame(viewModel.VisibleItems[2], viewModel.SelectedItem);
+        Assert.IsTrue(viewModel.VisibleItems[0].IsBatchSelected);
+        Assert.IsTrue(viewModel.VisibleItems[2].IsBatchSelected);
+
+        viewModel.ToggleSelection(viewModel.VisibleItems[2]);
+
+        Assert.HasCount(1, viewModel.SelectedItems);
+        Assert.AreSame(viewModel.VisibleItems[0], viewModel.SelectedItem);
+        Assert.IsFalse(viewModel.VisibleItems[2].IsBatchSelected);
+    }
+
+    [TestMethod]
+    public void SelectRangeTo_SelectsVisibleRangeFromPrimarySelection()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+
+        viewModel.SelectOnly(viewModel.VisibleItems[1]);
+        viewModel.SelectRangeTo(viewModel.VisibleItems[3]);
+
+        CollectionAssert.AreEqual(
+            new[] { viewModel.VisibleItems[1], viewModel.VisibleItems[2], viewModel.VisibleItems[3] },
+            viewModel.SelectedItems.ToArray());
+        Assert.AreSame(viewModel.VisibleItems[3], viewModel.SelectedItem);
+    }
+
+    [TestMethod]
+    public void SelectRangeTo_UsesProvidedAnchorWhenPrimarySelectionAlreadyMoved()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+        var anchor = viewModel.VisibleItems[1];
+        viewModel.SelectedItem = viewModel.VisibleItems[3];
+
+        viewModel.SelectRangeTo(viewModel.VisibleItems[3], anchor);
+
+        CollectionAssert.AreEqual(
+            new[] { viewModel.VisibleItems[1], viewModel.VisibleItems[2], viewModel.VisibleItems[3] },
+            viewModel.SelectedItems.ToArray());
+    }
+
+    [TestMethod]
+    public void SelectAllVisible_SelectsOnlyFilteredSearchResults()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+
+        viewModel.SearchQuery = @"c:\temp";
+        viewModel.SelectAllVisible();
+
+        Assert.HasCount(3, viewModel.SelectedItems);
+        CollectionAssert.AreEqual(viewModel.VisibleItems.ToArray(), viewModel.SelectedItems.ToArray());
+    }
+
+    [TestMethod]
+    public void SearchQuery_RemovesHiddenItemsFromBatchSelection()
+    {
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems());
+
+        viewModel.SelectAllVisible();
+        viewModel.SearchQuery = "note";
+
+        Assert.HasCount(1, viewModel.SelectedItems);
+        Assert.AreSame(viewModel.VisibleItems[0], viewModel.SelectedItems[0]);
+        Assert.AreSame(viewModel.VisibleItems[0], viewModel.SelectedItem);
+    }
+
+    [TestMethod]
+    public void RemoveSelectedCommand_ConfirmsBeforeRemovingMultipleRecords()
+    {
+        var confirmationCount = 0;
+        var viewModel = CreateViewModel(
+            initialItems: CreateMixedItems(),
+            confirmRemoveSelected: count =>
+            {
+                confirmationCount = count;
+                return false;
+            });
+
+        viewModel.SelectRangeTo(viewModel.VisibleItems[2]);
+        viewModel.RemoveSelectedCommand.Execute(null);
+
+        Assert.AreEqual(3, confirmationCount);
+        Assert.HasCount(5, viewModel.Items);
+    }
+
+    [TestMethod]
+    public void RemoveSelectedCommand_RemovesConfirmedSelectedRecordsOnly()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items, confirmRemoveSelected: _ => true);
+
+        viewModel.SelectOnly(viewModel.VisibleItems[1]);
+        viewModel.ToggleSelection(viewModel.VisibleItems[3]);
+        viewModel.RemoveSelectedCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { items[0], items[2], items[4] },
+            viewModel.GetShelfItems().ToArray());
+        Assert.HasCount(1, viewModel.SelectedItems);
+    }
+
+    [TestMethod]
+    public void CardRemoveCommand_RemovesBatchSelectionWhenItemIsSelectedInBatch()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items, confirmRemoveSelected: _ => true);
+
+        viewModel.SelectOnly(viewModel.VisibleItems[1]);
+        viewModel.ToggleSelection(viewModel.VisibleItems[3]);
+        viewModel.VisibleItems[1].RemoveCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { items[0], items[2], items[4] },
+            viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void CardRemoveCommand_RemovesOnlyClickedItemWhenItemIsNotInBatchSelection()
+    {
+        var items = CreateMixedItems().ToArray();
+        var viewModel = CreateViewModel(initialItems: items, confirmRemoveSelected: _ => true);
+
+        viewModel.SelectOnly(viewModel.VisibleItems[1]);
+        viewModel.ToggleSelection(viewModel.VisibleItems[3]);
+        viewModel.VisibleItems[0].RemoveCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { items[1], items[2], items[3], items[4] },
+            viewModel.GetShelfItems().ToArray());
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_RejectsMixedTypeBatch()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(initialItems: CreateMixedItems(), clipboardService: clipboard);
+
+        viewModel.SelectOnly(viewModel.VisibleItems[0]);
+        viewModel.ToggleSelection(viewModel.VisibleItems[2]);
+        viewModel.CopySelectedCommand.Execute(null);
+
+        Assert.AreEqual("请选择同一类型的暂存项后再复制。", viewModel.ShelfStatusMessage);
+        Assert.IsNull(clipboard.Text);
+        Assert.IsEmpty(clipboard.FileDropList);
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_CopiesSameTypeTextAsNewlineSeparatedText()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.Text, DisplayName = "One", Content = "alpha" },
+                new ShelfItem { Type = ShelfItemType.Text, DisplayName = "Two", Content = "beta" },
+            ],
+            clipboardService: clipboard);
+
+        viewModel.SelectAllVisible();
+        viewModel.CopySelectedCommand.Execute(null);
+
+        Assert.AreEqual($"alpha{Environment.NewLine}beta", clipboard.Text);
+        Assert.AreEqual("已复制 2 条文本。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_CopiesSameTypeFilesAsFileDropList()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.File, DisplayName = "One", SourcePath = @"C:\Temp\one.txt" },
+                new ShelfItem { Type = ShelfItemType.File, DisplayName = "Two", SourcePath = @"C:\Temp\two.txt" },
+            ],
+            clipboardService: clipboard);
+
+        viewModel.SelectAllVisible();
+        viewModel.CopySelectedCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { @"C:\Temp\one.txt", @"C:\Temp\two.txt" },
+            clipboard.FileDropList.ToArray());
+        Assert.AreEqual("已复制 2 个文件。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_CopiesSameTypeFoldersAsFileDropList()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "One", SourcePath = @"C:\Temp\one" },
+                new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "Two", SourcePath = @"C:\Temp\two" },
+            ],
+            clipboardService: clipboard);
+
+        viewModel.SelectAllVisible();
+        viewModel.CopySelectedCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { @"C:\Temp\one", @"C:\Temp\two" },
+            clipboard.FileDropList.ToArray());
+        Assert.AreEqual("已复制 2 个文件夹。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_CopiesSameTypeImagesAsFileDropList()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.Image, DisplayName = "One", ImagePath = @"C:\Temp\one.png" },
+                new ShelfItem { Type = ShelfItemType.Image, DisplayName = "Two", ImagePath = @"C:\Temp\two.png" },
+            ],
+            clipboardService: clipboard);
+
+        viewModel.SelectAllVisible();
+        viewModel.CopySelectedCommand.Execute(null);
+
+        CollectionAssert.AreEqual(
+            new[] { @"C:\Temp\one.png", @"C:\Temp\two.png" },
+            clipboard.FileDropList.ToArray());
+        Assert.AreEqual("已复制 2 张图片。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void CopySelectedCommand_CopiesSameTypeUrlsAsNewlineSeparatedLinks()
+    {
+        var clipboard = new FakeClipboardService();
+        var viewModel = CreateViewModel(
+            initialItems:
+            [
+                new ShelfItem { Type = ShelfItemType.Url, DisplayName = "One", Content = "https://example.com/one" },
+                new ShelfItem { Type = ShelfItemType.Url, DisplayName = "Two", Content = "https://example.com/two" },
+            ],
+            clipboardService: clipboard);
+
+        viewModel.SelectAllVisible();
+        viewModel.CopySelectedCommand.Execute(null);
+
+        Assert.AreEqual($"https://example.com/one{Environment.NewLine}https://example.com/two", clipboard.Text);
+        Assert.AreEqual("已复制 2 个链接。", viewModel.ShelfStatusMessage);
     }
 
     [TestMethod]
@@ -742,7 +1096,22 @@ public sealed class ShelfViewModelTests
 
         Assert.AreEqual(new ShelfAddResult(1, 1), result);
         Assert.HasCount(1, viewModel.Items);
-        Assert.AreEqual("已添加 1 项，跳过 1 个重复路径。", viewModel.ShelfStatusMessage);
+        Assert.AreEqual("已添加 1 个文件夹，跳过 1 个重复路径。", viewModel.ShelfStatusMessage);
+    }
+
+    [TestMethod]
+    public void AddItems_ReportsAddedItemsByType()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.AddItems(
+        [
+            new ShelfItem { Type = ShelfItemType.File, DisplayName = "report.txt", SourcePath = @"C:\Temp\report.txt" },
+            new ShelfItem { Type = ShelfItemType.Folder, DisplayName = "Assets", SourcePath = @"C:\Temp\Assets" },
+            new ShelfItem { Type = ShelfItemType.Url, DisplayName = "example.com", Content = "https://example.com" },
+        ]);
+
+        Assert.AreEqual("已添加 1 个文件、1 个文件夹、1 个链接。", viewModel.ShelfStatusMessage);
     }
 
     [TestMethod]
@@ -939,6 +1308,7 @@ public sealed class ShelfViewModelTests
         localizationService.SetLanguage(LanguageMode.English);
 
         Assert.AreEqual("Filter", viewModel.FilterLabel);
+        Assert.AreEqual("Search cards", viewModel.SearchPlaceholder);
         Assert.AreEqual("All", viewModel.FilterModeOptions.Single(option => option.Value == ShelfFilterMode.All).DisplayName);
     }
 
@@ -948,6 +1318,7 @@ public sealed class ShelfViewModelTests
         IClipboardService? clipboardService = null,
         ImageStore? imageStore = null,
         Func<int, bool>? confirmClearAll = null,
+        Func<int, bool>? confirmRemoveSelected = null,
         Func<ShelfItem, string?>? selectRelinkPath = null,
         LocalizationService? localizationService = null,
         bool isShelfPinned = false,
@@ -959,6 +1330,7 @@ public sealed class ShelfViewModelTests
             clipboardService: clipboardService ?? new FakeClipboardService(),
             imageStore: imageStore,
             confirmClearAll: confirmClearAll,
+            confirmRemoveSelected: confirmRemoveSelected,
             selectRelinkPath: selectRelinkPath,
             localizationService: localizationService,
             isShelfPinned: isShelfPinned,
@@ -981,6 +1353,8 @@ public sealed class ShelfViewModelTests
     {
         public string? Text { get; private set; }
 
+        public List<string> FileDropList { get; } = [];
+
         public bool SetText(string text)
         {
             Text = text;
@@ -991,6 +1365,13 @@ public sealed class ShelfViewModelTests
         {
             Text = path;
             return File.Exists(path);
+        }
+
+        public bool SetFileDropList(IEnumerable<string> paths)
+        {
+            FileDropList.Clear();
+            FileDropList.AddRange(paths);
+            return FileDropList.Count > 0;
         }
     }
 

@@ -109,6 +109,17 @@ Candidate 0.1.3 scope:
 * Multi-select cards and remove selected items in one action.
 * Detect and clean up missing file/folder path records.
 
+### Implemented Feature: 0.1.4 Efficiency Enhancements
+
+Improve daily efficiency when the shelf contains more cards:
+
+* Search cards while keeping type filtering as a visible projection over the full shelf.
+* Batch import structured clipboard paths and links as separate typed cards.
+* Multi-select current visible cards with Windows-style gestures.
+* Confirm multi-delete and preserve original files/folders.
+* Copy same-type selected cards, and show a clear prompt for mixed-type copy.
+* Add global shortcuts for show/hide and background clipboard-to-shelf.
+
 ### Future Optimization Areas
 
 * Card organization: pin or favorite important cards, batch actions, and clearer

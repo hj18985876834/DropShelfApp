@@ -74,6 +74,24 @@ public sealed class ImageStoreTests
     }
 
     [TestMethod]
+    public void DeleteImageFiles_KeepsExternalImagePath()
+    {
+        using var tempDirectory = new TempDirectory();
+        var store = new ImageStore(Path.Combine(tempDirectory.Path, "app-data"));
+        var externalImagePath = Path.Combine(tempDirectory.Path, "external.png");
+        File.WriteAllText(externalImagePath, "image");
+        var item = new ShelfItem
+        {
+            Type = ShelfItemType.Image,
+            ImagePath = externalImagePath,
+        };
+
+        store.DeleteImageFiles(item);
+
+        Assert.IsTrue(File.Exists(externalImagePath));
+    }
+
+    [TestMethod]
     public void DeleteImageFiles_IgnoresAlreadyMissingFiles()
     {
         using var tempDirectory = new TempDirectory();
