@@ -247,21 +247,34 @@
                                 <Button Content="{Binding CheckForUpdatesText}"
                                         Command="{Binding CheckForUpdatesCommand}"
                                         Style="{StaticResource SettingsButtonStyle}"
+                                        Height="32"
                                         MinWidth="120"
                                         Margin="0,0,8,0" />
                                 <Button Content="{Binding DownloadUpdateText}"
                                         Command="{Binding DownloadUpdateCommand}"
                                         Style="{StaticResource PrimaryButtonStyle}"
+                                        Height="32"
                                         MinWidth="120"
                                         Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             </StackPanel>
-                            <StackPanel Margin="0,10,0,0"
-                                        Visibility="{Binding HasUpdateDetails, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Text="{Binding UpdateDetails}" Style="{StaticResource InfoTextStyle}" />
-                                <TextBlock Text="{Binding UpdateReleaseNotes}"
-                                           Style="{StaticResource InfoTextStyle}"
-                                           Margin="0,8,0,0" />
-                            </StackPanel>
+                            <Border Margin="0,10,0,0"
+                                    Padding="10"
+                                    MaxHeight="150"
+                                    Background="{DynamicResource DropShelfPanelBackground}"
+                                    BorderBrush="{DynamicResource DropShelfPanelBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Visibility="{Binding HasUpdateDetails, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding UpdateDetails}" Style="{StaticResource InfoTextStyle}" />
+                                        <TextBlock Text="{Binding UpdateReleaseNotes}"
+                                                   Style="{StaticResource InfoTextStyle}"
+                                                   Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel>
@@ -274,21 +287,28 @@
         </ScrollViewer>
 
         <DockPanel Grid.Row="2" Margin="0,12,0,0">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
                 <Button Content="{Binding ApplyText}"
                         Command="{Binding ApplyCommand}"
                         Style="{StaticResource PrimaryButtonStyle}"
+                        Height="32"
                         MinWidth="80"
+                        VerticalAlignment="Center"
                         Margin="0,0,8,0" />
                 <Button Content="{Binding CloseText}"
                         Style="{StaticResource SettingsButtonStyle}"
+                        Height="32"
                         MinWidth="80"
+                        VerticalAlignment="Center"
                         Click="CloseButton_OnClick" />
             </StackPanel>
 
             <TextBlock Text="{Binding StatusMessage}"
                        Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}"
                        TextWrapping="Wrap"
+                       Margin="0,0,12,0"
                        VerticalAlignment="Center">
                 <TextBlock.Style>
                     <Style TargetType="{x:Type TextBlock}">

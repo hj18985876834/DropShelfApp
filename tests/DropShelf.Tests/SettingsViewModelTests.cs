@@ -158,6 +158,7 @@ public sealed class SettingsViewModelTests
         StringAssert.Contains(viewModel.UpdateDetails, "2026-07-18");
         Assert.AreEqual("更新说明。", viewModel.UpdateReleaseNotes);
         StringAssert.Contains(viewModel.StatusMessage, "发现新版本 0.2.0");
+        Assert.IsFalse(viewModel.StatusMessage.Contains("更新说明。", StringComparison.Ordinal));
 
         viewModel.LanguageMode = LanguageMode.English;
 

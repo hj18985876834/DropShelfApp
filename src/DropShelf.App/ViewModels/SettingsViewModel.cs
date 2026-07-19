@@ -503,12 +503,6 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         var message = string.Format(System.Globalization.CultureInfo.CurrentCulture, Text.UpdateAvailableFormat, manifest.Version);
-        var notes = manifest.ReleaseNotesFor(_localizationService.IsChinese);
-        if (!string.IsNullOrWhiteSpace(notes))
-        {
-            message = $"{message} {notes}";
-        }
-
         SetStatus(message, isError: false);
     }
 
