@@ -39,13 +39,13 @@ The installer version, application assembly metadata, release tag, and update ma
 For the current baseline release:
 
 ```text
-Version: 0.1.2
-Release tag: v0.1.2
-Main branch commit: v0.1.2 tag target
-Installer size: 51092473 bytes
-Installer SHA256: 58912f2440c68cab27432d0945759dd69eab1118dfb465ba9f81869a741b3538
-Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.2
-Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.2/EdgeTuckSetup.exe
+Version: 0.1.4
+Release tag: v0.1.4
+Main branch commit: v0.1.4 tag target
+Installer size: 51119162 bytes
+Installer SHA256: 9ab815743340b58e411e6a7c3f9319c95fa26e5a35733fc94956b39c4f1f601d
+Release page: https://github.com/hj18985876834/DropShelfApp/releases/tag/v0.1.4
+Installer URL: https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.4/EdgeTuckSetup.exe
 ```
 
 ## Quality Gate
@@ -175,11 +175,11 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
 
 ```json
 {
-  "version": "0.1.2",
-  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.2/EdgeTuckSetup.exe",
-  "sha256": "58912f2440c68cab27432d0945759dd69eab1118dfb465ba9f81869a741b3538",
-  "sizeBytes": 51092473,
-  "releaseDate": "2026-07-06",
+  "version": "0.1.4",
+  "installerUrl": "https://github.com/hj18985876834/DropShelfApp/releases/download/v0.1.4/EdgeTuckSetup.exe",
+  "sha256": "9ab815743340b58e411e6a7c3f9319c95fa26e5a35733fc94956b39c4f1f601d",
+  "sizeBytes": 51119162,
+  "releaseDate": "2026-07-19",
   "mandatory": false,
   "branding": {
     "displayName": "EdgeTuck",
@@ -189,8 +189,8 @@ https://raw.githubusercontent.com/hj18985876834/DropShelfApp/main/updates/latest
     }
   },
   "releaseNotes": {
-    "zh-CN": "优化收纳栏列表滚动体验，滚轮浏览卡片时更平滑、更容易控制。长文本卡片支持点击展开或收起，可直接在卡片内查看完整内容。新增收纳栏固定按钮，可让收纳栏保持展开，固定状态会自动保存。",
-    "en-US": "Improved shelf list mouse-wheel scrolling for smoother, more controlled card browsing. Added inline expand/collapse for long text cards. Added a pin button to keep the shelf open, with the pinned state saved automatically."
+    "zh-CN": "新增卡片搜索，可和类型筛选一起使用，更快找到暂存内容。支持从剪贴板批量导入多条有效路径或链接，并按类型创建记录和显示加入结果。支持多选当前可见卡片，可批量移除或复制；同类型内容会按文件、文件夹、图片、文本和链接分别处理，混合类型复制会提示先选择同一类型。新增全局快捷键，可显示或隐藏 EdgeTuck，并在后台把当前剪贴板内容加入收纳栏。设置中的使用方法说明更清晰，检查更新时更新详情展示更稳定。",
+    "en-US": "Added card search that works together with type filtering so shelf items are easier to find. Added batch import from clipboard text containing multiple valid paths or links, with typed item creation and type-specific add feedback. Added multi-select for visible cards with batch remove and copy; same-type content is handled separately for files, folders, images, text, and links, while mixed-type copy asks you to select one type first. Added global shortcuts to show or hide EdgeTuck and add current clipboard content in the background. Improved the settings usage guide and made update details display more consistently."
   }
 }
 ```

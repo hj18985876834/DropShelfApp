@@ -9,6 +9,7 @@
 - 同类型卡片可批量复制，文件、文件夹、图片、文本和链接会按各自类型处理；混合类型复制会提示先选择同一类型。
 - 新增全局快捷键：显示或隐藏 EdgeTuck，以及在后台把当前剪贴板内容加入收纳栏。
 - 快速加入剪贴板内容后不会打断当前窗口，只通过托盘提示反馈结果。
+- 设置中的使用方法说明更清晰，检查更新时更新详情展示更稳定。
 
 ## English
 
@@ -19,3 +20,4 @@
 - Same-type cards can be copied together with type-specific handling for files, folders, images, text, and links; mixed-type copy asks you to select one type first.
 - Added global shortcuts to show/hide EdgeTuck and add current clipboard content in the background.
 - Quick paste reports the result from the tray without interrupting the current window.
+- Improved the settings usage guide and made update details display more consistently.
